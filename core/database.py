@@ -110,8 +110,27 @@ class Database:
                 CREATE TABLE IF NOT EXISTS locations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL UNIQUE,
-                    map_name TEXT,
-                    location_type TEXT
+                    map_id INTEGER,
+                    type_id INTEGER,
+                    FOREIGN KEY (map_id) REFERENCES maps(id),
+                    FOREIGN KEY (type_id) REFERENCES location_types(id)
+                )
+            """)
+            
+            # Maps table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS maps (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    abbreviation TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL UNIQUE
+                )
+            """)
+            
+            # Location types table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS location_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE
                 )
             """)
             
@@ -324,21 +343,51 @@ class Database:
     
     # ==================== LOCATION OPERATIONS ====================
     
-    def add_location(self, location: Location) -> int:
-        """Add a new location. Returns the new ID."""
+    def add_location(self, location_or_name, map_name: str = None, type_name: str = None) -> int:
+        """Add a new location. Can accept Location object or (name, map_name, type_name)."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Handle both Location object and direct args
+            if isinstance(location_or_name, Location):
+                name = location_or_name.name
+                map_name = location_or_name.map_name
+                type_name = location_or_name.location_type
+            else:
+                name = location_or_name
+            
+            # Get map_id
+            map_id = None
+            if map_name:
+                cursor.execute("SELECT id FROM maps WHERE name = ?", (map_name,))
+                row = cursor.fetchone()
+                map_id = row[0] if row else None
+            
+            # Get type_id
+            type_id = None
+            if type_name:
+                cursor.execute("SELECT id FROM location_types WHERE name = ?", (type_name,))
+                row = cursor.fetchone()
+                type_id = row[0] if row else None
+            
             cursor.execute("""
-                INSERT OR IGNORE INTO locations (name, map_name, location_type)
+                INSERT OR IGNORE INTO locations (name, map_id, type_id)
                 VALUES (?, ?, ?)
-            """, (location.name, location.map_name, location.location_type))
+            """, (name, map_id, type_id))
+            conn.commit()
             return cursor.lastrowid
     
     def get_all_locations(self) -> list[Location]:
         """Get all locations."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM locations ORDER BY name")
+            cursor.execute("""
+                SELECT l.id, l.name, m.name as map_name, lt.name as location_type
+                FROM locations l
+                LEFT JOIN maps m ON l.map_id = m.id
+                LEFT JOIN location_types lt ON l.type_id = lt.id
+                ORDER BY l.name
+            """)
             return [
                 Location(
                     id=row["id"], 
@@ -355,6 +404,141 @@ class Database:
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM locations ORDER BY name")
             return [row["name"] for row in cursor.fetchall()]
+    
+    def get_locations(self, map_name: str = None, location_type: str = None) -> list[dict]:
+        """Get locations with optional filtering."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT l.id, l.name, m.name as map, lt.name as type
+                FROM locations l
+                LEFT JOIN maps m ON l.map_id = m.id
+                LEFT JOIN location_types lt ON l.type_id = lt.id
+                WHERE 1=1
+            """
+            params = []
+            
+            if map_name:
+                query += " AND m.name = ?"
+                params.append(map_name)
+            
+            if location_type:
+                query += " AND lt.name = ?"
+                params.append(location_type)
+            
+            query += " ORDER BY m.name, l.name"
+            
+            cursor.execute(query, params)
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    def update_location(self, loc_id: int, name: str, map_name: str, type_name: str):
+        """Update a location."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get map_id
+            map_id = None
+            if map_name:
+                cursor.execute("SELECT id FROM maps WHERE name = ?", (map_name,))
+                row = cursor.fetchone()
+                map_id = row[0] if row else None
+            
+            # Get type_id
+            type_id = None
+            if type_name:
+                cursor.execute("SELECT id FROM location_types WHERE name = ?", (type_name,))
+                row = cursor.fetchone()
+                type_id = row[0] if row else None
+            
+            cursor.execute(
+                "UPDATE locations SET name = ?, map_id = ?, type_id = ? WHERE id = ?",
+                (name, map_id, type_id, loc_id)
+            )
+            conn.commit()
+    
+    def delete_location(self, loc_id: int):
+        """Delete a location."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM locations WHERE id = ?", (loc_id,))
+            conn.commit()
+    
+    # ==================== MAP OPERATIONS ====================
+    
+    def get_maps(self) -> list[dict]:
+        """Get all maps."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, abbreviation, name FROM maps ORDER BY name")
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    def add_map(self, abbreviation: str, name: str) -> int:
+        """Add a new map."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR IGNORE INTO maps (abbreviation, name) VALUES (?, ?)",
+                (abbreviation, name)
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    def update_map(self, map_id: int, abbreviation: str, name: str):
+        """Update a map."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE maps SET abbreviation = ?, name = ? WHERE id = ?",
+                (abbreviation, name, map_id)
+            )
+            conn.commit()
+    
+    def delete_map(self, map_id: int):
+        """Delete a map and its locations."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM locations WHERE map_id = ?", (map_id,))
+            cursor.execute("DELETE FROM maps WHERE id = ?", (map_id,))
+            conn.commit()
+    
+    # ==================== LOCATION TYPE OPERATIONS ====================
+    
+    def get_location_types(self) -> list[dict]:
+        """Get all location types."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name FROM location_types ORDER BY name")
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
+    def add_location_type(self, name: str) -> int:
+        """Add a new location type."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR IGNORE INTO location_types (name) VALUES (?)", (name,))
+            conn.commit()
+            return cursor.lastrowid
+    
+    def update_location_type(self, type_id: int, name: str):
+        """Update a location type."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE location_types SET name = ? WHERE id = ?",
+                (name, type_id)
+            )
+            conn.commit()
+    
+    def delete_location_type(self, type_id: int):
+        """Delete a location type."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE locations SET type_id = NULL WHERE type_id = ?", (type_id,))
+            cursor.execute("DELETE FROM location_types WHERE id = ?", (type_id,))
+            conn.commit()
     
     # ==================== GAME SETTINGS OPERATIONS ====================
     

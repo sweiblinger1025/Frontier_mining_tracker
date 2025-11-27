@@ -59,6 +59,8 @@ class MainWindow(QMainWindow):
         # Import actual tab implementations
         from ui.tabs.reference_tab import ReferenceDataTab
         from ui.tabs.ledger_tab import LedgerTab
+        from ui.tabs.auditor_tab import AuditorTab
+        from ui.tabs.locations_tab import LocationsTab
         
         # Create tabs
         for tab_name, tab_id in TABS:
@@ -68,6 +70,12 @@ class MainWindow(QMainWindow):
             elif tab_id == "ledger":
                 tab = LedgerTab()
                 self.ledger_tab = tab
+            elif tab_id == "auditor":
+                tab = AuditorTab()
+                self.auditor_tab = tab
+            elif tab_id == "locations":
+                tab = LocationsTab()
+                self.locations_tab = tab
             else:
                 # Placeholder for other tabs
                 tab = self._create_placeholder_tab(tab_name)
