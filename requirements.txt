@@ -1,0 +1,16 @@
+# Frontier Mining Tracker - Dependencies
+# Install with: pip install -r requirements.txt
+
+# GUI Framework
+PyQt6>=6.5.0
+
+# Data handling
+pandas>=2.0.0
+openpyxl>=3.1.0      # Excel file support
+
+# Database
+# SQLite is built into Python, no extra package needed
+
+# Future considerations (uncomment when needed):
+# matplotlib>=3.7.0   # Charts and graphs
+# pyqtgraph>=0.13.0   # Fast plotting for PyQt
