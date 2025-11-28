@@ -282,7 +282,9 @@ class VehiclesSubTab(QWidget):
             "Name",
             "Category",
             "Weight (lbs)",
+            "Weight (kg)",
             "Capacity (yd³)",
+            "Capacity (m³)",
             "Power (kW)",
             "Fuel Use (L/hr)",
             "Fuel Tank (L)",
@@ -459,19 +461,41 @@ class VehiclesSubTab(QWidget):
             cat_item = QTableWidgetItem(cat)
             self.table.setItem(row, 1, cat_item)
             
-            # Weight
+            # Weight (lbs)
             weight_item = QTableWidgetItem(f"{vehicle['weight_lbs']:,.0f}")
             weight_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            weight_item.setData(Qt.ItemDataRole.UserRole, vehicle['weight_lbs'])  # For sorting
             self.table.setItem(row, 2, weight_item)
             
-            # Capacity
+            # Weight (kg) - conversion: 1 lb = 0.453592 kg
+            weight_kg = vehicle['weight_lbs'] * 0.453592
+            weight_kg_item = QTableWidgetItem(f"{weight_kg:,.0f}")
+            weight_kg_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            weight_kg_item.setData(Qt.ItemDataRole.UserRole, weight_kg)  # For sorting
+            self.table.setItem(row, 3, weight_kg_item)
+            
+            # Capacity (yd³)
             if vehicle["capacity_yd3"] > 0:
                 cap_text = f"{vehicle['capacity_yd3']:.1f}"
+                cap_item = QTableWidgetItem(cap_text)
+                cap_item.setData(Qt.ItemDataRole.UserRole, vehicle['capacity_yd3'])
             else:
-                cap_text = "-"
-            cap_item = QTableWidgetItem(cap_text)
+                cap_item = QTableWidgetItem("-")
+                cap_item.setData(Qt.ItemDataRole.UserRole, 0)
             cap_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 3, cap_item)
+            self.table.setItem(row, 4, cap_item)
+            
+            # Capacity (m³) - conversion: 1 yd³ = 0.764555 m³
+            if vehicle["capacity_yd3"] > 0:
+                cap_m3 = vehicle['capacity_yd3'] * 0.764555
+                cap_m3_text = f"{cap_m3:.1f}"
+                cap_m3_item = QTableWidgetItem(cap_m3_text)
+                cap_m3_item.setData(Qt.ItemDataRole.UserRole, cap_m3)
+            else:
+                cap_m3_item = QTableWidgetItem("-")
+                cap_m3_item.setData(Qt.ItemDataRole.UserRole, 0)
+            cap_m3_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.table.setItem(row, 5, cap_m3_item)
             
             # Power
             if vehicle["power_kw"] > 0:
@@ -480,7 +504,7 @@ class VehiclesSubTab(QWidget):
                 power_text = "-"
             power_item = QTableWidgetItem(power_text)
             power_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 4, power_item)
+            self.table.setItem(row, 6, power_item)
             
             # Fuel Use
             if vehicle["fuel_use_lph"] > 0:
@@ -489,7 +513,7 @@ class VehiclesSubTab(QWidget):
                 fuel_text = "-"
             fuel_item = QTableWidgetItem(fuel_text)
             fuel_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 5, fuel_item)
+            self.table.setItem(row, 7, fuel_item)
             
             # Fuel Tank
             if vehicle["fuel_capacity_l"] > 0:
@@ -498,7 +522,7 @@ class VehiclesSubTab(QWidget):
                 tank_text = "-"
             tank_item = QTableWidgetItem(tank_text)
             tank_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 6, tank_item)
+            self.table.setItem(row, 8, tank_item)
             
             # Run Time (Fuel Tank / Fuel Use)
             if vehicle["fuel_use_lph"] > 0 and vehicle["fuel_capacity_l"] > 0:
@@ -508,7 +532,7 @@ class VehiclesSubTab(QWidget):
                 run_text = "-"
             run_item = QTableWidgetItem(run_text)
             run_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 7, run_item)
+            self.table.setItem(row, 9, run_item)
             
             # Fuel $/hr
             if vehicle["fuel_use_lph"] > 0:
@@ -522,12 +546,12 @@ class VehiclesSubTab(QWidget):
             else:
                 cost_item = QTableWidgetItem("-")
             cost_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 8, cost_item)
+            self.table.setItem(row, 10, cost_item)
             
             # Price
             price_item = QTableWidgetItem(f"${vehicle['price']:,.0f}")
             price_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 9, price_item)
+            self.table.setItem(row, 11, price_item)
         
         self.table.setSortingEnabled(True)
     
