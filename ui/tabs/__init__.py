@@ -13,6 +13,7 @@ from ui.tabs.vehicles_subtab import VehiclesSubTab
 from ui.tabs.buildings_subtab import BuildingsSubTab
 from ui.tabs.recipes_subtab import RecipesSubTab
 from ui.tabs.locations_subtab import LocationsSubTab
+from ui.tabs.material_movement_tab import MaterialMovementTab
 
 __all__ = [
     "ReferenceDataTab",
@@ -25,4 +26,5 @@ __all__ = [
     "VehiclesSubTab",
     "BuildingsSubTab",
     "RecipesSubTab",
+    "MaterialMovementTab",
 ]

@@ -565,6 +565,30 @@ class LedgerTab(QWidget):
         
         self._populate_table()
     
+    def get_current_balances(self) -> dict:
+        """Get the current personal and company balances.
+        
+        Returns dict with 'personal', 'company', and 'total' keys.
+        Used by Material Movement tab to auto-fill starting balance.
+        """
+        personal_balance = self.opening_personal
+        company_balance = self.opening_company
+        
+        for txn in self.transactions:
+            if txn.get('type') == 'Opening':
+                continue
+            
+            personal_balance += txn.get('personal_income', 0)
+            personal_balance += txn.get('personal_expense', 0)
+            company_balance += txn.get('company_income', 0)
+            company_balance += txn.get('company_expense', 0)
+        
+        return {
+            'personal': personal_balance,
+            'company': company_balance,
+            'total': personal_balance + company_balance,
+        }
+    
     def _on_edit_transaction(self):
         """Edit the selected transaction."""
         selected = self.table.selectedItems()

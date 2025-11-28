@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
         from ui.tabs.reference_tab import ReferenceDataTab
         from ui.tabs.ledger_tab import LedgerTab
         from ui.tabs.auditor_tab import AuditorTab
+        from ui.tabs.material_movement_tab import MaterialMovementTab
         
         # Create tabs
         for tab_name, tab_id in TABS:
@@ -72,12 +73,19 @@ class MainWindow(QMainWindow):
             elif tab_id == "auditor":
                 tab = AuditorTab()
                 self.auditor_tab = tab
+            elif tab_id == "material":
+                tab = MaterialMovementTab()
+                self.material_movement_tab = tab
             else:
                 # Placeholder for other tabs
                 tab = self._create_placeholder_tab(tab_name)
             
             self.tab_widget.addTab(tab, tab_name)
             self.tabs[tab_id] = tab
+        
+        # Connect tabs that need references to each other
+        if hasattr(self, 'material_movement_tab') and hasattr(self, 'ledger_tab'):
+            self.material_movement_tab.set_ledger_tab(self.ledger_tab)
         
         self.main_layout.addWidget(self.tab_widget)
     
