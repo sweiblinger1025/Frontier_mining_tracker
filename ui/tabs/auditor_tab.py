@@ -154,7 +154,7 @@ class AuditorTab(QWidget):
         splitter.addWidget(self._create_comparison_panel())
         
         splitter.setSizes([400, 600])
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, stretch=1)
         
         # Bottom: Audit log
         layout.addWidget(self._create_audit_log())

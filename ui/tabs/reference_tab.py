@@ -7,6 +7,7 @@ Features:
 - Skill discount controls (VN Level, IF Level)
 - Import/Export Excel buttons
 - Editable Can Buy/Can Sell dropdowns
+- Sub-tabs for different reference data types
 """
 
 from PyQt6.QtWidgets import (
@@ -27,6 +28,7 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QInputDialog,
+    QTabWidget,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor
@@ -37,12 +39,114 @@ from typing import Optional
 from core.database import Database, get_database
 from core.models import Item
 from importers.excel_importer import ExcelImporter
+from ui.tabs.factory_subtab import FactoryEquipmentSubTab
+from ui.tabs.vehicles_subtab import VehiclesSubTab
+from ui.tabs.buildings_subtab import BuildingsSubTab
+from ui.tabs.recipes_subtab import RecipesSubTab
+from ui.tabs.locations_subtab import LocationsSubTab
 
 
 class ReferenceDataTab(QWidget):
-    """Reference Data tab showing all items with prices and rules."""
+    """Reference Data tab with sub-tabs for items, factory equipment, etc."""
     
     # Signal emitted when data is imported/changed
+    data_changed = pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.db = get_database()
+        self.importer = ExcelImporter(self.db)
+        
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Set up the user interface with sub-tabs."""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+        
+        # Create tab widget for sub-tabs
+        self.sub_tabs = QTabWidget()
+        self.sub_tabs.setTabPosition(QTabWidget.TabPosition.North)
+        
+        # Items Sub-Tab (the original content)
+        self.items_tab = ItemsSubTab(self)
+        self.items_tab.data_changed.connect(self._on_data_changed)
+        self.sub_tabs.addTab(self.items_tab, "📦 Items")
+        
+        # Factory Equipment Sub-Tab
+        self.factory_tab = FactoryEquipmentSubTab(self)
+        self.factory_tab.data_changed.connect(self._on_data_changed)
+        self.sub_tabs.addTab(self.factory_tab, "🏭 Factory Equipment")
+        
+        # Vehicles Sub-Tab
+        self.vehicles_tab = VehiclesSubTab(self)
+        self.vehicles_tab.data_changed.connect(self._on_data_changed)
+        self.sub_tabs.addTab(self.vehicles_tab, "🚛 Vehicles")
+        
+        # Buildings Sub-Tab
+        self.buildings_tab = BuildingsSubTab(self)
+        self.buildings_tab.data_changed.connect(self._on_data_changed)
+        self.sub_tabs.addTab(self.buildings_tab, "🏗️ Buildings")
+        
+        # Recipes Sub-Tab
+        self.recipes_tab = RecipesSubTab(self)
+        self.recipes_tab.data_changed.connect(self._on_data_changed)
+        self.sub_tabs.addTab(self.recipes_tab, "📋 Recipes")
+        
+        # Locations Sub-Tab
+        self.locations_tab = LocationsSubTab(self)
+        self.locations_tab.data_changed.connect(self._on_data_changed)
+        self.sub_tabs.addTab(self.locations_tab, "📍 Locations")
+        
+        layout.addWidget(self.sub_tabs)
+    
+    def _on_data_changed(self):
+        """Handle data changes from sub-tabs."""
+        self.data_changed.emit()
+    
+    # Delegate methods to items tab for backwards compatibility
+    def get_item_by_name(self, name: str) -> Optional[Item]:
+        """Get item by name (for other tabs to use)."""
+        return self.items_tab.get_item_by_name(name)
+    
+    def get_item_by_name_and_category(self, name: str, category: str) -> Optional[Item]:
+        """Get item by name and category (for duplicates)."""
+        return self.items_tab.get_item_by_name_and_category(name, category)
+    
+    def get_all_item_names(self) -> list[str]:
+        """Get all item names (for autocomplete)."""
+        return self.items_tab.get_all_item_names()
+    
+    def get_purchasable_items(self) -> list[Item]:
+        """Get items that can be purchased."""
+        return self.items_tab.get_purchasable_items()
+    
+    def get_sellable_items(self) -> list[Item]:
+        """Get items that can be sold."""
+        return self.items_tab.get_sellable_items()
+    
+    # Delegate methods to locations tab for backwards compatibility
+    def get_all_locations(self) -> list[dict]:
+        """Get all locations (for other tabs to use)."""
+        return self.locations_tab.get_all_locations()
+    
+    def get_location_names(self) -> list[str]:
+        """Get all location names (for autocomplete)."""
+        return self.locations_tab.get_location_names()
+    
+    def get_maps(self) -> list[dict]:
+        """Get all maps."""
+        return self.locations_tab.get_maps()
+    
+    def get_location_types(self) -> list[dict]:
+        """Get all location types."""
+        return self.locations_tab.get_location_types()
+
+
+class ItemsSubTab(QWidget):
+    """Items sub-tab showing all items with prices and rules."""
+    
     data_changed = pyqtSignal()
     
     def __init__(self, parent=None):

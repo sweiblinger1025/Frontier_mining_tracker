@@ -267,3 +267,66 @@ class Vehicle:
     def capacity_m3(self) -> float:
         """Convert capacity to cubic meters."""
         return self.capacity_yd3 * 0.764555
+
+
+@dataclass
+class FactoryEquipment:
+    """
+    Represents factory equipment (conveyors, power, pipelines).
+    
+    Used for factory planning and power calculations.
+    """
+    id: Optional[int] = None
+    art_nr: int = 0
+    name: str = ""
+    category: str = ""  # Conveyor, Power, Pipeline
+    subcategory: str = ""  # Straight, Up, Down, Turn, etc.
+    length_m: float = 0.0
+    height_m: float = 0.0
+    conveyor_speed: float = 0.0  # M/s
+    power_consumption_kw: float = 0.0
+    power_generated_kw: float = 0.0
+    max_capacity_kw: float = 0.0  # For pylons
+    max_connections: int = 1
+    power_efficiency: str = "1x"
+    fuel_type: str = ""  # Coal, Generator Fuel, None
+    price: float = 0.0
+    notes: str = ""
+    
+    @property
+    def is_power_consumer(self) -> bool:
+        """Check if this equipment consumes power."""
+        return self.power_consumption_kw > 0
+    
+    @property
+    def is_power_generator(self) -> bool:
+        """Check if this equipment generates power."""
+        return self.power_generated_kw > 0
+    
+    @property
+    def is_power_distributor(self) -> bool:
+        """Check if this equipment distributes power (pylons)."""
+        return self.max_capacity_kw > 0
+    
+    @property
+    def price_per_kw(self) -> float:
+        """Calculate cost per kW for generators."""
+        if self.power_generated_kw > 0:
+            return self.price / self.power_generated_kw
+        return 0.0
+    
+    @property
+    def price_per_kw_capacity(self) -> float:
+        """Calculate cost per kW capacity for pylons."""
+        if self.max_capacity_kw > 0:
+            return self.price / self.max_capacity_kw
+        return 0.0
+    
+    @property
+    def dimensions(self) -> str:
+        """Format dimensions as string."""
+        if self.length_m > 0 and self.height_m > 0:
+            return f"{self.length_m:.0f}m × {self.height_m:.0f}m"
+        elif self.length_m > 0:
+            return f"{self.length_m:.0f}m"
+        return "-"

@@ -155,6 +155,29 @@ class Database:
                 )
             """)
             
+            # Factory Equipment table (conveyors, power, pipelines)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS factory_equipment (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    art_nr INTEGER UNIQUE,
+                    name TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    subcategory TEXT,
+                    length_m REAL DEFAULT 0,
+                    height_m REAL DEFAULT 0,
+                    conveyor_speed REAL DEFAULT 0,
+                    power_consumption_kw REAL DEFAULT 0,
+                    power_generated_kw REAL DEFAULT 0,
+                    max_capacity_kw REAL DEFAULT 0,
+                    max_connections INTEGER DEFAULT 1,
+                    power_efficiency TEXT DEFAULT '1x',
+                    fuel_type TEXT,
+                    price REAL DEFAULT 0,
+                    notes TEXT,
+                    UNIQUE(name, category)
+                )
+            """)
+            
             # Create indexes for common queries
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_transactions_date 
@@ -602,6 +625,114 @@ class Database:
                 settings.investment_forecasting_discount,
             ))
             return True
+
+    # ==================== FACTORY EQUIPMENT OPERATIONS ====================
+    
+    def add_factory_equipment(self, equipment: 'FactoryEquipment') -> int:
+        """Add or update factory equipment. Returns the ID."""
+        from core.models import FactoryEquipment
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO factory_equipment
+                (art_nr, name, category, subcategory, length_m, height_m,
+                 conveyor_speed, power_consumption_kw, power_generated_kw,
+                 max_capacity_kw, max_connections, power_efficiency, fuel_type, price, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                equipment.art_nr,
+                equipment.name,
+                equipment.category,
+                equipment.subcategory,
+                equipment.length_m,
+                equipment.height_m,
+                equipment.conveyor_speed,
+                equipment.power_consumption_kw,
+                equipment.power_generated_kw,
+                equipment.max_capacity_kw,
+                equipment.max_connections,
+                equipment.power_efficiency,
+                equipment.fuel_type,
+                equipment.price,
+                equipment.notes,
+            ))
+            return cursor.lastrowid
+    
+    def get_all_factory_equipment(self) -> list:
+        """Get all factory equipment."""
+        from core.models import FactoryEquipment
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM factory_equipment ORDER BY category, subcategory, name")
+            rows = cursor.fetchall()
+            
+            equipment_list = []
+            for row in rows:
+                equipment_list.append(FactoryEquipment(
+                    id=row["id"],
+                    art_nr=row["art_nr"],
+                    name=row["name"],
+                    category=row["category"],
+                    subcategory=row["subcategory"] or "",
+                    length_m=row["length_m"],
+                    height_m=row["height_m"],
+                    conveyor_speed=row["conveyor_speed"],
+                    power_consumption_kw=row["power_consumption_kw"],
+                    power_generated_kw=row["power_generated_kw"],
+                    max_capacity_kw=row["max_capacity_kw"],
+                    max_connections=row["max_connections"],
+                    power_efficiency=row["power_efficiency"] or "1x",
+                    fuel_type=row["fuel_type"] or "",
+                    price=row["price"],
+                    notes=row["notes"] or "",
+                ))
+            return equipment_list
+    
+    def get_factory_equipment_by_category(self, category: str) -> list:
+        """Get factory equipment by category (Conveyor, Power, Pipeline)."""
+        from core.models import FactoryEquipment
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM factory_equipment WHERE category = ? ORDER BY subcategory, name",
+                (category,)
+            )
+            rows = cursor.fetchall()
+            
+            equipment_list = []
+            for row in rows:
+                equipment_list.append(FactoryEquipment(
+                    id=row["id"],
+                    art_nr=row["art_nr"],
+                    name=row["name"],
+                    category=row["category"],
+                    subcategory=row["subcategory"] or "",
+                    length_m=row["length_m"],
+                    height_m=row["height_m"],
+                    conveyor_speed=row["conveyor_speed"],
+                    power_consumption_kw=row["power_consumption_kw"],
+                    power_generated_kw=row["power_generated_kw"],
+                    max_capacity_kw=row["max_capacity_kw"],
+                    max_connections=row["max_connections"],
+                    power_efficiency=row["power_efficiency"] or "1x",
+                    fuel_type=row["fuel_type"] or "",
+                    price=row["price"],
+                    notes=row["notes"] or "",
+                ))
+            return equipment_list
+    
+    def get_factory_equipment_count(self) -> int:
+        """Get total count of factory equipment."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM factory_equipment")
+            return cursor.fetchone()[0]
+    
+    def delete_all_factory_equipment(self):
+        """Delete all factory equipment (for reimport)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM factory_equipment")
 
 
 # Global database instance (created on first import)

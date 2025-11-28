@@ -40,16 +40,19 @@ def ensure_directories():
 TABS = [
     ("Dashboard", "dashboard"),
     ("Ledger", "ledger"),
-    ("Reference Data", "reference"),         # Combined Price Tables + Item Rules
+    ("Reference Data", "reference"),         # Combined: Items, Factory, Vehicles, Buildings, Recipes, Locations
     ("Auditor", "auditor"),
     ("ROI Tracker", "roi_tracker"),
     ("Inventory", "inventory"),
     ("Material Movement", "material"),
     ("Budget Planner", "budget_planner"),
-    ("Locations", "locations"),
     ("Settings", "settings"),
 ]
 
-# Future tabs to add (from spreadsheets):
-# - Story Templates (challenge mode narrative messages)
-# - Vehicle Specs (detailed vehicle specifications)
+# Reference Data sub-tabs (for documentation):
+# - Items: Price tables, item rules, skill discounts
+# - Factory Equipment: Conveyors, power, pipelines
+# - Vehicles: Vehicle specs with fuel calculations
+# - Buildings: Factory production buildings
+# - Recipes: Workbench crafting recipes  
+# - Locations: Maps, location types, and specific locations
