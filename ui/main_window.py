@@ -57,6 +57,7 @@ class MainWindow(QMainWindow):
         self.tabs = {}
         
         # Import actual tab implementations
+        from ui.tabs.dashboard_tab import DashboardTab
         from ui.tabs.reference_tab import ReferenceDataTab
         from ui.tabs.ledger_tab import LedgerTab
         from ui.tabs.auditor_tab import AuditorTab
@@ -68,7 +69,10 @@ class MainWindow(QMainWindow):
         
         # Create tabs
         for tab_name, tab_id in TABS:
-            if tab_id == "reference":
+            if tab_id == "dashboard":
+                tab = DashboardTab(self)
+                self.dashboard_tab = tab
+            elif tab_id == "reference":
                 tab = ReferenceDataTab()
                 self.reference_tab = tab
             elif tab_id == "ledger":

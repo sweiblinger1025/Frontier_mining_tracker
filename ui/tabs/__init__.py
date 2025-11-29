@@ -4,6 +4,7 @@ UI Tabs Module
 Contains all tab widgets for the main application.
 """
 
+from ui.tabs.dashboard_tab import DashboardTab
 from ui.tabs.reference_tab import ReferenceDataTab, ItemsSubTab
 from ui.tabs.ledger_tab import LedgerTab
 from ui.tabs.auditor_tab import AuditorTab
@@ -20,6 +21,7 @@ from ui.tabs.budget_planner_tab import BudgetPlannerTab
 from ui.tabs.roi_tracker_tab import ROITrackerTab
 
 __all__ = [
+    "DashboardTab",
     "ReferenceDataTab",
     "ItemsSubTab",
     "LedgerTab",
