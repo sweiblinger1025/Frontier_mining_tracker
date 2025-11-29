@@ -778,18 +778,6 @@ class ItemsSubTab(QWidget):
         """Get all item names (for autocomplete)."""
         return [item.name for item in self.all_items]
     
-    def get_all_items(self) -> list[dict]:
-        """Get all items as dictionaries for syncing with Settings."""
-        return [
-            {
-                "name": item.name,
-                "category": item.category,
-                "can_purchase": item.can_purchase,
-                "can_sell": item.can_sell,
-            }
-            for item in self.all_items
-        ]
-    
     def get_purchasable_items(self) -> list[Item]:
         """Get items that can be purchased."""
         return [item for item in self.all_items if item.can_purchase]
