@@ -35,6 +35,9 @@ class DashboardTab(QWidget):
         # === Financial Summary Cards ===
         self._create_financial_cards(layout)
         
+        # === Oil Progress Section ===
+        self._create_oil_progress(layout)
+        
         # === Quick Actions ===
         self._create_quick_actions(layout)
         
@@ -142,6 +145,64 @@ class DashboardTab(QWidget):
         
         return card
     
+    def _create_oil_progress(self, parent_layout):
+        """Create the oil lifetime progress section."""
+        oil_group = QGroupBox("⛽ Oil Lifetime Progress")
+        oil_layout = QVBoxLayout(oil_group)
+        
+        # Top row: Labels
+        labels_layout = QHBoxLayout()
+        
+        self.oil_sold_label = QLabel("Sold: 0")
+        self.oil_sold_label.setFont(QFont("", 11, QFont.Weight.Bold))
+        labels_layout.addWidget(self.oil_sold_label)
+        
+        labels_layout.addStretch()
+        
+        self.oil_remaining_label = QLabel("Remaining: 10,000")
+        self.oil_remaining_label.setFont(QFont("", 11))
+        self.oil_remaining_label.setStyleSheet("color: #666666;")
+        labels_layout.addWidget(self.oil_remaining_label)
+        
+        labels_layout.addStretch()
+        
+        self.oil_cap_label = QLabel("Cap: 10,000")
+        self.oil_cap_label.setFont(QFont("", 11, QFont.Weight.Bold))
+        labels_layout.addWidget(self.oil_cap_label)
+        
+        oil_layout.addLayout(labels_layout)
+        
+        # Progress bar
+        self.oil_progress = QProgressBar()
+        self.oil_progress.setMinimum(0)
+        self.oil_progress.setMaximum(100)
+        self.oil_progress.setValue(0)
+        self.oil_progress.setTextVisible(True)
+        self.oil_progress.setFormat("%p% of lifetime cap")
+        self.oil_progress.setMinimumHeight(30)
+        self.oil_progress.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #1F4E79;
+                border-radius: 5px;
+                text-align: center;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #3498db, stop:0.5 #2ecc71, stop:1 #27ae60);
+                border-radius: 3px;
+            }
+        """)
+        oil_layout.addWidget(self.oil_progress)
+        
+        # Status label
+        self.oil_status_label = QLabel("✅ Within safe limits")
+        self.oil_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.oil_status_label.setStyleSheet("color: #008800;")
+        oil_layout.addWidget(self.oil_status_label)
+        
+        parent_layout.addWidget(oil_group)
+    
     def _create_quick_actions(self, parent_layout):
         """Create quick action buttons."""
         actions_group = QGroupBox("⚡ Quick Actions")
@@ -232,6 +293,7 @@ class DashboardTab(QWidget):
     def refresh_dashboard(self):
         """Refresh all dashboard data."""
         self._update_financial_summary()
+        self._update_oil_progress()
         self._update_roi_highlights()
         self._update_recent_activity()
         self._update_status_banner()
@@ -264,6 +326,113 @@ class DashboardTab(QWidget):
                 
         except Exception as e:
             print(f"Error updating financial summary: {e}")
+    
+    def _update_oil_progress(self):
+        """Update oil lifetime progress from Inventory tab."""
+        try:
+            if hasattr(self.main_window, 'inventory_tab'):
+                inv = self.main_window.inventory_tab
+                
+                # Get oil tracking values
+                oil_sold = getattr(inv, 'oil_lifetime_sold', 0)
+                oil_cap = getattr(inv, 'oil_cap_amount', 10000)
+                oil_enabled = getattr(inv, 'oil_cap_enabled', True)
+                
+                # Update labels
+                self.oil_sold_label.setText(f"Sold: {oil_sold:,.0f}")
+                self.oil_cap_label.setText(f"Cap: {oil_cap:,.0f}")
+                
+                remaining = max(0, oil_cap - oil_sold)
+                self.oil_remaining_label.setText(f"Remaining: {remaining:,.0f}")
+                
+                # Update progress bar
+                if oil_cap > 0:
+                    percentage = min(100, (oil_sold / oil_cap) * 100)
+                    self.oil_progress.setValue(int(percentage))
+                else:
+                    self.oil_progress.setValue(0)
+                
+                # Update status and colors
+                if not oil_enabled:
+                    self.oil_status_label.setText("⚪ Oil cap tracking disabled")
+                    self.oil_status_label.setStyleSheet("color: #666666;")
+                    self.oil_progress.setStyleSheet("""
+                        QProgressBar {
+                            border: 2px solid #CCCCCC;
+                            border-radius: 5px;
+                            text-align: center;
+                        }
+                        QProgressBar::chunk {
+                            background-color: #CCCCCC;
+                            border-radius: 3px;
+                        }
+                    """)
+                elif oil_sold >= oil_cap:
+                    self.oil_status_label.setText("🚨 OIL CAP REACHED - No more sales allowed!")
+                    self.oil_status_label.setStyleSheet("color: #CC0000; font-weight: bold;")
+                    self.oil_progress.setStyleSheet("""
+                        QProgressBar {
+                            border: 2px solid #CC0000;
+                            border-radius: 5px;
+                            text-align: center;
+                            font-weight: bold;
+                        }
+                        QProgressBar::chunk {
+                            background-color: #CC0000;
+                            border-radius: 3px;
+                        }
+                    """)
+                elif oil_sold >= oil_cap * 0.9:
+                    self.oil_status_label.setText("⚠️ WARNING: Approaching oil cap limit!")
+                    self.oil_status_label.setStyleSheet("color: #CC8800; font-weight: bold;")
+                    self.oil_progress.setStyleSheet("""
+                        QProgressBar {
+                            border: 2px solid #CC8800;
+                            border-radius: 5px;
+                            text-align: center;
+                            font-weight: bold;
+                        }
+                        QProgressBar::chunk {
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #f39c12, stop:1 #e74c3c);
+                            border-radius: 3px;
+                        }
+                    """)
+                elif oil_sold >= oil_cap * 0.75:
+                    self.oil_status_label.setText("⚠️ 75% of oil cap used")
+                    self.oil_status_label.setStyleSheet("color: #CC8800;")
+                    self.oil_progress.setStyleSheet("""
+                        QProgressBar {
+                            border: 2px solid #1F4E79;
+                            border-radius: 5px;
+                            text-align: center;
+                            font-weight: bold;
+                        }
+                        QProgressBar::chunk {
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #3498db, stop:0.7 #f39c12, stop:1 #e67e22);
+                            border-radius: 3px;
+                        }
+                    """)
+                else:
+                    self.oil_status_label.setText("✅ Within safe limits")
+                    self.oil_status_label.setStyleSheet("color: #008800;")
+                    self.oil_progress.setStyleSheet("""
+                        QProgressBar {
+                            border: 2px solid #1F4E79;
+                            border-radius: 5px;
+                            text-align: center;
+                            font-weight: bold;
+                        }
+                        QProgressBar::chunk {
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #3498db, stop:0.5 #2ecc71, stop:1 #27ae60);
+                            border-radius: 3px;
+                        }
+                    """)
+                    
+        except Exception as e:
+            print(f"Error updating oil progress: {e}")
     
     def _update_roi_highlights(self):
         """Update ROI highlights from ROI Tracker."""
