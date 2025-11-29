@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
         """Create the application menu bar."""
         menubar = self.menuBar()
         
-        # File Menu
+        # ========== FILE MENU ==========
         file_menu = menubar.addMenu("&File")
         
         # Session management
@@ -158,67 +158,137 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
         
-        new_action = QAction("&New Transaction", self)
-        new_action.setShortcut("Ctrl+N")
-        new_action.triggered.connect(self._on_new_transaction)
-        file_menu.addAction(new_action)
+        # Quick actions
+        new_transaction_action = QAction("➕ &New Transaction", self)
+        new_transaction_action.setShortcut("Ctrl+N")
+        new_transaction_action.triggered.connect(self._on_new_transaction)
+        file_menu.addAction(new_transaction_action)
+        
+        new_investment_action = QAction("📈 New &Investment", self)
+        new_investment_action.setShortcut("Ctrl+Shift+I")
+        new_investment_action.triggered.connect(self._on_new_investment)
+        file_menu.addAction(new_investment_action)
         
         file_menu.addSeparator()
         
-        import_action = QAction("&Import from Excel...", self)
+        # Import/Export
+        import_action = QAction("📥 &Import from Excel...", self)
         import_action.setShortcut("Ctrl+I")
+        import_action.triggered.connect(self._on_import_excel)
         file_menu.addAction(import_action)
         
-        export_action = QAction("&Export to Excel...", self)
+        export_action = QAction("📤 &Export to Excel...", self)
         export_action.setShortcut("Ctrl+E")
+        export_action.triggered.connect(self._on_export_excel)
         file_menu.addAction(export_action)
         
         file_menu.addSeparator()
         
-        exit_action = QAction("E&xit", self)
+        exit_action = QAction("❌ E&xit", self)
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
-        # Edit Menu
+        # ========== EDIT MENU ==========
         edit_menu = menubar.addMenu("&Edit")
         
-        undo_action = QAction("&Undo", self)
+        undo_action = QAction("↩️ &Undo", self)
         undo_action.setShortcut("Ctrl+Z")
+        undo_action.setEnabled(False)  # Placeholder for future
         edit_menu.addAction(undo_action)
         
-        redo_action = QAction("&Redo", self)
+        redo_action = QAction("↪️ &Redo", self)
         redo_action.setShortcut("Ctrl+Y")
+        redo_action.setEnabled(False)  # Placeholder for future
         edit_menu.addAction(redo_action)
         
-        # Tools Menu
+        edit_menu.addSeparator()
+        
+        delete_selected_action = QAction("🗑️ &Delete Selected", self)
+        delete_selected_action.setShortcut("Delete")
+        delete_selected_action.triggered.connect(self._on_delete_selected)
+        edit_menu.addAction(delete_selected_action)
+        
+        edit_menu.addSeparator()
+        
+        preferences_action = QAction("⚙️ &Preferences...", self)
+        preferences_action.setShortcut("Ctrl+,")
+        preferences_action.triggered.connect(self._on_preferences)
+        edit_menu.addAction(preferences_action)
+        
+        # ========== VIEW MENU ==========
+        view_menu = menubar.addMenu("&View")
+        
+        # Tab navigation
+        dashboard_action = QAction("📊 &Dashboard", self)
+        dashboard_action.setShortcut("Ctrl+1")
+        dashboard_action.triggered.connect(lambda: self._go_to_tab("dashboard"))
+        view_menu.addAction(dashboard_action)
+        
+        ledger_action = QAction("📒 &Ledger", self)
+        ledger_action.setShortcut("Ctrl+2")
+        ledger_action.triggered.connect(lambda: self._go_to_tab("ledger"))
+        view_menu.addAction(ledger_action)
+        
+        reference_action = QAction("📚 &Reference Data", self)
+        reference_action.setShortcut("Ctrl+3")
+        reference_action.triggered.connect(lambda: self._go_to_tab("reference"))
+        view_menu.addAction(reference_action)
+        
+        auditor_action = QAction("🔍 &Auditor", self)
+        auditor_action.setShortcut("Ctrl+4")
+        auditor_action.triggered.connect(lambda: self._go_to_tab("auditor"))
+        view_menu.addAction(auditor_action)
+        
+        roi_action = QAction("📈 &ROI Tracker", self)
+        roi_action.setShortcut("Ctrl+5")
+        roi_action.triggered.connect(lambda: self._go_to_tab("roi_tracker"))
+        view_menu.addAction(roi_action)
+        
+        inventory_action = QAction("📦 &Inventory", self)
+        inventory_action.setShortcut("Ctrl+6")
+        inventory_action.triggered.connect(lambda: self._go_to_tab("inventory"))
+        view_menu.addAction(inventory_action)
+        
+        material_action = QAction("🚛 &Material Movement", self)
+        material_action.setShortcut("Ctrl+7")
+        material_action.triggered.connect(lambda: self._go_to_tab("material"))
+        view_menu.addAction(material_action)
+        
+        budget_action = QAction("💰 &Budget Planner", self)
+        budget_action.setShortcut("Ctrl+8")
+        budget_action.triggered.connect(lambda: self._go_to_tab("budget_planner"))
+        view_menu.addAction(budget_action)
+        
+        settings_action = QAction("⚙️ &Settings", self)
+        settings_action.setShortcut("Ctrl+9")
+        settings_action.triggered.connect(lambda: self._go_to_tab("settings"))
+        view_menu.addAction(settings_action)
+        
+        view_menu.addSeparator()
+        
+        refresh_action = QAction("🔄 &Refresh Dashboard", self)
+        refresh_action.setShortcut("F5")
+        refresh_action.triggered.connect(self._on_refresh_dashboard)
+        view_menu.addAction(refresh_action)
+        
+        # ========== TOOLS MENU ==========
         tools_menu = menubar.addMenu("&Tools")
         
-        # Calculators
+        # Calculators submenu
+        calc_menu = tools_menu.addMenu("🧮 &Calculators")
+        
         fuel_calc_action = QAction("⛽ &Fuel Calculator...", self)
         fuel_calc_action.triggered.connect(self._on_fuel_calculator)
-        tools_menu.addAction(fuel_calc_action)
+        calc_menu.addAction(fuel_calc_action)
         
         discount_calc_action = QAction("💰 &Discount Calculator...", self)
         discount_calc_action.triggered.connect(self._on_discount_calculator)
-        tools_menu.addAction(discount_calc_action)
+        calc_menu.addAction(discount_calc_action)
         
         split_calc_action = QAction("💵 &Split Calculator...", self)
         split_calc_action.triggered.connect(self._on_split_calculator)
-        tools_menu.addAction(split_calc_action)
-        
-        tools_menu.addSeparator()
-        
-        # Import/Export
-        import_action2 = QAction("📥 &Import from Excel...", self)
-        import_action2.setShortcut("Ctrl+Shift+I")
-        import_action2.triggered.connect(self._on_import_excel)
-        tools_menu.addAction(import_action2)
-        
-        export_action2 = QAction("📤 &Export to Excel...", self)
-        export_action2.setShortcut("Ctrl+Shift+E")
-        export_action2.triggered.connect(self._on_export_excel)
-        tools_menu.addAction(export_action2)
+        calc_menu.addAction(split_calc_action)
         
         tools_menu.addSeparator()
         
@@ -233,7 +303,7 @@ class MainWindow(QMainWindow):
         
         tools_menu.addSeparator()
         
-        # Audit
+        # Audit/Validation
         audit_action = QAction("🔍 &Audit Save File...", self)
         audit_action.triggered.connect(self._on_audit_save)
         tools_menu.addAction(audit_action)
@@ -242,10 +312,37 @@ class MainWindow(QMainWindow):
         recalc_action.triggered.connect(self._on_recalculate)
         tools_menu.addAction(recalc_action)
         
-        # Help Menu
+        validate_action = QAction("✅ &Validate Data...", self)
+        validate_action.triggered.connect(self._on_validate_data)
+        tools_menu.addAction(validate_action)
+        
+        # ========== HELP MENU ==========
         help_menu = menubar.addMenu("&Help")
         
-        about_action = QAction("&About", self)
+        quick_start_action = QAction("🚀 &Quick Start Guide", self)
+        quick_start_action.setShortcut("F1")
+        quick_start_action.triggered.connect(self._on_quick_start)
+        help_menu.addAction(quick_start_action)
+        
+        shortcuts_action = QAction("⌨️ &Keyboard Shortcuts...", self)
+        shortcuts_action.triggered.connect(self._on_keyboard_shortcuts)
+        help_menu.addAction(shortcuts_action)
+        
+        help_menu.addSeparator()
+        
+        game_reference_action = QAction("🎮 &Game Reference...", self)
+        game_reference_action.triggered.connect(self._on_game_reference)
+        help_menu.addAction(game_reference_action)
+        
+        help_menu.addSeparator()
+        
+        check_updates_action = QAction("🔄 Check for &Updates...", self)
+        check_updates_action.triggered.connect(self._on_check_updates)
+        help_menu.addAction(check_updates_action)
+        
+        help_menu.addSeparator()
+        
+        about_action = QAction("ℹ️ &About", self)
         about_action.triggered.connect(self._on_about)
         help_menu.addAction(about_action)
     
@@ -521,8 +618,262 @@ class MainWindow(QMainWindow):
     def _on_recalculate(self):
         """Recalculate all balances."""
         from PyQt6.QtWidgets import QMessageBox
+        
+        try:
+            # Recalculate ledger balances
+            if hasattr(self, 'ledger_tab'):
+                self.ledger_tab._recalculate_balances()
+            
+            # Refresh dashboard
+            if hasattr(self, 'dashboard_tab'):
+                self.dashboard_tab.refresh_dashboard()
+            
+            self.status_bar.showMessage("Balances recalculated")
+            QMessageBox.information(
+                self,
+                "Recalculate",
+                "All balances have been recalculated successfully."
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"Error recalculating balances: {e}"
+            )
+    
+    # --- New Menu Handlers ---
+    
+    def _on_new_investment(self):
+        """Navigate to ROI Tracker to add new investment."""
+        self._go_to_tab("roi_tracker")
+        self.status_bar.showMessage("ROI Tracker - Add a new investment")
+    
+    def _on_delete_selected(self):
+        """Delete selected item in current tab."""
+        current_tab = self.tab_widget.currentWidget()
+        
+        # List of possible delete method names used across tabs
+        delete_methods = [
+            '_remove_selected',           # ROI Tracker, Budget Planner
+            '_on_delete_transaction',     # Ledger
+            '_on_delete_item',            # Inventory
+            '_on_delete',                 # Generic
+            'remove_selected',            # Generic
+        ]
+        
+        # Try each method name
+        for method_name in delete_methods:
+            if hasattr(current_tab, method_name):
+                method = getattr(current_tab, method_name)
+                if callable(method):
+                    method()
+                    return
+        
+        # No delete method found
+        self.status_bar.showMessage("No deletable selection in current tab")
+    
+    def _on_preferences(self):
+        """Open Settings tab (preferences)."""
+        self._go_to_tab("settings")
+        self.status_bar.showMessage("Settings - Configure preferences")
+    
+    def _go_to_tab(self, tab_id: str):
+        """Navigate to a specific tab by ID."""
+        try:
+            tab_ids = [tid for _, tid in TABS]
+            if tab_id in tab_ids:
+                index = tab_ids.index(tab_id)
+                self.tab_widget.setCurrentIndex(index)
+        except Exception as e:
+            print(f"Error navigating to tab {tab_id}: {e}")
+    
+    def _on_refresh_dashboard(self):
+        """Refresh the dashboard."""
+        if hasattr(self, 'dashboard_tab'):
+            self.dashboard_tab.refresh_dashboard()
+            self.status_bar.showMessage("Dashboard refreshed")
+    
+    def _on_validate_data(self):
+        """Validate all data for consistency."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        issues = []
+        
+        # Check ledger balances
+        try:
+            if hasattr(self, 'ledger_tab'):
+                balances = self.ledger_tab.get_current_balances()
+                if balances.get("personal", 0) < 0:
+                    issues.append("⚠️ Personal balance is negative")
+                if balances.get("company", 0) < 0:
+                    issues.append("⚠️ Company balance is negative")
+        except:
+            issues.append("❌ Could not validate Ledger data")
+        
+        # Check inventory
+        try:
+            if hasattr(self, 'inventory_tab'):
+                inv = self.inventory_tab
+                if inv.oil_lifetime_sold > inv.oil_cap_amount and inv.oil_cap_enabled:
+                    issues.append("🚨 Oil sold exceeds lifetime cap!")
+        except:
+            issues.append("❌ Could not validate Inventory data")
+        
+        # Check ROI Tracker
+        try:
+            if hasattr(self, 'roi_tracker_tab'):
+                roi = self.roi_tracker_tab
+                for inv in roi.investments:
+                    if inv.get("cost", 0) <= 0:
+                        issues.append(f"⚠️ ROI item '{inv.get('name', 'Unknown')}' has zero cost")
+        except:
+            issues.append("❌ Could not validate ROI Tracker data")
+        
+        if issues:
+            QMessageBox.warning(
+                self,
+                "Data Validation",
+                "Issues found:\n\n" + "\n".join(issues)
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Data Validation",
+                "✅ All data validated successfully!\n\nNo issues found."
+            )
+        
+        self.status_bar.showMessage(f"Validation complete: {len(issues)} issue(s) found")
+    
+    def _on_quick_start(self):
+        """Show Quick Start Guide."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        guide = """
+<h2>🚀 Quick Start Guide</h2>
+
+<h3>Getting Started</h3>
+<p>1. <b>Dashboard</b> - Overview of your mining operations</p>
+<p>2. <b>Ledger</b> - Track all income and expenses</p>
+<p>3. <b>ROI Tracker</b> - Monitor investment returns</p>
+<p>4. <b>Inventory</b> - Track ore and resources</p>
+<p>5. <b>Budget Planner</b> - Plan equipment purchases</p>
+
+<h3>Key Shortcuts</h3>
+<p><b>Ctrl+N</b> - New Transaction</p>
+<p><b>Ctrl+S</b> - Save Session</p>
+<p><b>Ctrl+1-9</b> - Navigate to tabs</p>
+<p><b>F5</b> - Refresh Dashboard</p>
+
+<h3>Tips</h3>
+<p>• Save your session regularly (Ctrl+S)</p>
+<p>• Check the Dashboard for oil cap status</p>
+<p>• Use the Budget Planner before big purchases</p>
+"""
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Quick Start Guide")
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(guide)
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
+    
+    def _on_keyboard_shortcuts(self):
+        """Show keyboard shortcuts dialog."""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Keyboard Shortcuts")
+        dialog.setMinimumWidth(450)
+        dialog.setMinimumHeight(400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        shortcuts = [
+            ("Ctrl+Shift+N", "New Session"),
+            ("Ctrl+S", "Save Session"),
+            ("Ctrl+O", "Load Session"),
+            ("Ctrl+N", "New Transaction"),
+            ("Ctrl+I", "Import from Excel"),
+            ("Ctrl+E", "Export to Excel"),
+            ("Ctrl+Q", "Exit"),
+            ("", ""),
+            ("Ctrl+1", "Dashboard"),
+            ("Ctrl+2", "Ledger"),
+            ("Ctrl+3", "Reference Data"),
+            ("Ctrl+4", "Auditor"),
+            ("Ctrl+5", "ROI Tracker"),
+            ("Ctrl+6", "Inventory"),
+            ("Ctrl+7", "Material Movement"),
+            ("Ctrl+8", "Budget Planner"),
+            ("Ctrl+9", "Settings"),
+            ("", ""),
+            ("F5", "Refresh Dashboard"),
+            ("F1", "Quick Start Guide"),
+            ("Delete", "Delete Selected"),
+        ]
+        
+        table = QTableWidget(len(shortcuts), 2)
+        table.setHorizontalHeaderLabels(["Shortcut", "Action"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.verticalHeader().setVisible(False)
+        
+        for row, (shortcut, action) in enumerate(shortcuts):
+            table.setItem(row, 0, QTableWidgetItem(shortcut))
+            table.setItem(row, 1, QTableWidgetItem(action))
+        
+        layout.addWidget(table)
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        
+        dialog.exec()
+    
+    def _on_game_reference(self):
+        """Show game reference information."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        reference = """
+<h2>🎮 Out of Ore - Game Reference</h2>
+
+<h3>Hardcore Mode Starting Capital</h3>
+<p>• Personal: $10,000 (10%)</p>
+<p>• Company: $90,000 (90%)</p>
+<p>• Total: $100,000</p>
+
+<h3>Income Split (Ore/Oil Sales)</h3>
+<p>• Company receives: 90%</p>
+<p>• Personal receives: 10%</p>
+
+<h3>Skill Discounts</h3>
+<p>• Vendor Negotiation: 0.5% per level (max 7)</p>
+<p>• Investment Forecasting: 0.5% per level (max 6)</p>
+
+<h3>Bulk Pricing</h3>
+<p>• 2+ units sold together = bulk rate applies</p>
+<p>• Single units round up to nearest dollar</p>
+
+<h3>Challenge Mode Oil Cap</h3>
+<p>• Default lifetime cap: 10,000 units</p>
+<p>• Configure in Settings tab</p>
+"""
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Game Reference")
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(reference)
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
+    
+    def _on_check_updates(self):
+        """Check for updates (placeholder)."""
+        from PyQt6.QtWidgets import QMessageBox
+        
         QMessageBox.information(
             self,
-            "Recalculate",
-            "Recalculate balances functionality coming soon!"
+            "Check for Updates",
+            f"You are running {APP_NAME} v{APP_VERSION}\n\n"
+            "This is the latest version.\n\n"
+            "Check GitHub for updates:\n"
+            "https://github.com/your-repo/frontier-mining-tracker"
         )
