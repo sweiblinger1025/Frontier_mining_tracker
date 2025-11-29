@@ -136,6 +136,28 @@ class MainWindow(QMainWindow):
         # File Menu
         file_menu = menubar.addMenu("&File")
         
+        # Session management
+        new_session_action = QAction("📄 &New Session...", self)
+        new_session_action.setShortcut("Ctrl+Shift+N")
+        new_session_action.triggered.connect(self._on_new_session)
+        file_menu.addAction(new_session_action)
+        
+        save_session_action = QAction("💾 &Save Session...", self)
+        save_session_action.setShortcut("Ctrl+S")
+        save_session_action.triggered.connect(self._on_save_session)
+        file_menu.addAction(save_session_action)
+        
+        load_session_action = QAction("📂 &Load Session...", self)
+        load_session_action.setShortcut("Ctrl+O")
+        load_session_action.triggered.connect(self._on_load_session)
+        file_menu.addAction(load_session_action)
+        
+        session_manager_action = QAction("🗂️ Session &Manager...", self)
+        session_manager_action.triggered.connect(self._on_session_manager)
+        file_menu.addAction(session_manager_action)
+        
+        file_menu.addSeparator()
+        
         new_action = QAction("&New Transaction", self)
         new_action.setShortcut("Ctrl+N")
         new_action.triggered.connect(self._on_new_transaction)
@@ -259,6 +281,97 @@ class MainWindow(QMainWindow):
             "A mining operations tracker for Out of Ore.\n\n"
             "Track transactions, manage inventory, and audit save files."
         )
+    
+    def _on_new_session(self):
+        """Handle new session action."""
+        from PyQt6.QtWidgets import QMessageBox
+        from core.session_manager import SessionManager
+        
+        reply = QMessageBox.question(
+            self, "New Session",
+            "This will clear all current data.\n\nDo you want to save the current session first?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+        )
+        
+        if reply == QMessageBox.StandardButton.Cancel:
+            return
+        
+        session_mgr = SessionManager(self)
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Quick save first
+            from datetime import datetime
+            import os
+            name = f"autosave_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            filepath = os.path.join(session_mgr.SESSIONS_DIR, f"{name}.json")
+            if session_mgr.save_session(filepath):
+                self.status_bar.showMessage(f"Session auto-saved as {name}")
+            else:
+                QMessageBox.warning(self, "Warning", "Failed to auto-save current session.")
+        
+        if session_mgr.new_session():
+            self.status_bar.showMessage("New session started")
+            QMessageBox.information(self, "Success", "New session started successfully.")
+        else:
+            QMessageBox.warning(self, "Error", "Failed to create new session.")
+    
+    def _on_save_session(self):
+        """Handle save session action."""
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from core.session_manager import SessionManager
+        
+        session_mgr = SessionManager(self)
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Session",
+            session_mgr.SESSIONS_DIR,
+            "JSON Files (*.json);;All Files (*)"
+        )
+        
+        if filepath:
+            if not filepath.endswith('.json'):
+                filepath += '.json'
+            
+            if session_mgr.save_session(filepath):
+                import os
+                self.status_bar.showMessage(f"Session saved: {os.path.basename(filepath)}")
+                QMessageBox.information(self, "Success", "Session saved successfully.")
+            else:
+                QMessageBox.warning(self, "Error", "Failed to save session.")
+    
+    def _on_load_session(self):
+        """Handle load session action."""
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from core.session_manager import SessionManager
+        
+        session_mgr = SessionManager(self)
+        
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Load Session",
+            session_mgr.SESSIONS_DIR,
+            "JSON Files (*.json);;All Files (*)"
+        )
+        
+        if filepath:
+            reply = QMessageBox.question(
+                self, "Load Session",
+                "This will replace all current data.\n\nContinue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                if session_mgr.load_session(filepath):
+                    import os
+                    self.status_bar.showMessage(f"Session loaded: {os.path.basename(filepath)}")
+                    QMessageBox.information(self, "Success", "Session loaded successfully.")
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to load session.")
+    
+    def _on_session_manager(self):
+        """Open Session Manager dialog."""
+        from core.session_manager import SessionDialog
+        dialog = SessionDialog(self, parent=self)
+        dialog.exec()
     
     def _on_fuel_calculator(self):
         """Open Fuel Calculator dialog."""

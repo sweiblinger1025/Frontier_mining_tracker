@@ -1464,6 +1464,29 @@ class SettingsTab(QWidget):
         """Get a setting value."""
         return self.settings.get(key)
     
+    def get_settings(self) -> dict:
+        """Get all settings as a dictionary."""
+        return dict(self.settings)
+    
+    def load_settings(self, data: dict):
+        """Load settings from a dictionary (for session restore)."""
+        if data:
+            self.settings.update(data)
+            # Update UI elements to reflect loaded settings
+            self._refresh_ui_from_settings()
+    
+    def _refresh_ui_from_settings(self):
+        """Update UI elements from settings dict."""
+        try:
+            # Update skill spinboxes if they exist
+            if hasattr(self, 'vn_spin'):
+                self.vn_spin.setValue(self.settings.get("vendor_negotiation_level", 0))
+            if hasattr(self, 'if_spin'):
+                self.if_spin.setValue(self.settings.get("investment_forecasting_level", 0))
+            # Update other UI elements as needed
+        except Exception as e:
+            print(f"Error refreshing settings UI: {e}")
+    
     def get_personal_split(self) -> float:
         """Get the personal split percentage."""
         return self.settings.get("personal_split", 0.10)
