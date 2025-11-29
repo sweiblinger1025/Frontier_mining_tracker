@@ -37,6 +37,43 @@ Add a "Sync from Ledger" button to the Inventory tab that automatically finds Or
 
 ---
 
+## 📊 ROI Tracker - Auto-Link from Ledger
+
+**Priority:** Medium  
+**Status:** Planned
+
+### Description
+Option to automatically create ROI tracking items from Ledger purchases and link revenue from sales.
+
+### Proposed Workflow
+
+**When Adding a Purchase in Ledger:**
+1. User adds a purchase transaction (e.g., "Bought Drill Mk3 - $8,000")
+2. Checkbox option: "☑ Track ROI for this item"
+3. If checked, automatically creates entry in ROI Tracker with:
+   - Item Name from transaction description
+   - Initial Cost from transaction amount
+   - Purchase Date from transaction date
+   - Category from item lookup
+
+**When Adding a Sale/Revenue in Ledger:**
+1. User adds a sale transaction
+2. Dropdown option: "Link to ROI Item: [None / Drill Mk3 / Oil Pump / ...]"
+3. If linked, automatically adds revenue to the selected ROI item
+
+### Benefits
+- Reduces double-entry (no need to manually add to both Ledger and ROI Tracker)
+- Keeps ROI data in sync with actual transactions
+- Still allows manual ROI entries for items not in Ledger
+
+### Technical Notes
+- Add "track_roi" boolean field to Ledger transactions
+- Add "roi_item_id" foreign key field for revenue linking
+- ROI Tracker needs method: `add_revenue_from_ledger(item_id, amount, date)`
+- Consider: What if user deletes Ledger transaction? Cascade to ROI?
+
+---
+
 ## 📋 Other Planned Features
 
 ### Settings Tab - Rules Config
@@ -49,11 +86,7 @@ Add a "Sync from Ledger" button to the Inventory tab that automatically finds Or
 - Summary widgets from all tabs
 - Quick stats overview
 - Charts/graphs for trends
-
-### Budget Planner Tab
-- Plan future purchases
-- Equipment upgrade paths
-- ROI projections
+- Challenge mode compliance section (when enabled)
 
 ### Database Persistence
 - Save all data to SQLite database

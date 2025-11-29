@@ -62,6 +62,9 @@ class MainWindow(QMainWindow):
         from ui.tabs.auditor_tab import AuditorTab
         from ui.tabs.material_movement_tab import MaterialMovementTab
         from ui.tabs.inventory_tab import InventoryTab
+        from ui.tabs.settings_tab import SettingsTab
+        from ui.tabs.budget_planner_tab import BudgetPlannerTab
+        from ui.tabs.roi_tracker_tab import ROITrackerTab
         
         # Create tabs
         for tab_name, tab_id in TABS:
@@ -74,12 +77,23 @@ class MainWindow(QMainWindow):
             elif tab_id == "auditor":
                 tab = AuditorTab()
                 self.auditor_tab = tab
+            elif tab_id == "roi_tracker":
+                tab = ROITrackerTab(self)
+                self.roi_tracker_tab = tab
             elif tab_id == "material":
                 tab = MaterialMovementTab()
                 self.material_movement_tab = tab
             elif tab_id == "inventory":
                 tab = InventoryTab()
                 self.inventory_tab = tab
+            elif tab_id == "budget_planner":
+                tab = BudgetPlannerTab()
+                tab.set_main_window(self)
+                self.budget_planner_tab = tab
+            elif tab_id == "settings":
+                tab = SettingsTab()
+                tab.set_main_window(self)
+                self.settings_tab = tab
             else:
                 # Placeholder for other tabs
                 tab = self._create_placeholder_tab(tab_name)
@@ -154,11 +168,52 @@ class MainWindow(QMainWindow):
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
         
-        audit_action = QAction("&Audit Save File...", self)
+        # Calculators
+        fuel_calc_action = QAction("⛽ &Fuel Calculator...", self)
+        fuel_calc_action.triggered.connect(self._on_fuel_calculator)
+        tools_menu.addAction(fuel_calc_action)
+        
+        discount_calc_action = QAction("💰 &Discount Calculator...", self)
+        discount_calc_action.triggered.connect(self._on_discount_calculator)
+        tools_menu.addAction(discount_calc_action)
+        
+        split_calc_action = QAction("💵 &Split Calculator...", self)
+        split_calc_action.triggered.connect(self._on_split_calculator)
+        tools_menu.addAction(split_calc_action)
+        
+        tools_menu.addSeparator()
+        
+        # Import/Export
+        import_action2 = QAction("📥 &Import from Excel...", self)
+        import_action2.setShortcut("Ctrl+Shift+I")
+        import_action2.triggered.connect(self._on_import_excel)
+        tools_menu.addAction(import_action2)
+        
+        export_action2 = QAction("📤 &Export to Excel...", self)
+        export_action2.setShortcut("Ctrl+Shift+E")
+        export_action2.triggered.connect(self._on_export_excel)
+        tools_menu.addAction(export_action2)
+        
+        tools_menu.addSeparator()
+        
+        # Game Tools
+        advance_day_action = QAction("📅 &Advance Game Day...", self)
+        advance_day_action.triggered.connect(self._on_advance_game_day)
+        tools_menu.addAction(advance_day_action)
+        
+        challenge_status_action = QAction("🎯 C&hallenge Status...", self)
+        challenge_status_action.triggered.connect(self._on_challenge_status)
+        tools_menu.addAction(challenge_status_action)
+        
+        tools_menu.addSeparator()
+        
+        # Audit
+        audit_action = QAction("🔍 &Audit Save File...", self)
         audit_action.triggered.connect(self._on_audit_save)
         tools_menu.addAction(audit_action)
         
-        recalc_action = QAction("&Recalculate Balances", self)
+        recalc_action = QAction("🔄 &Recalculate Balances", self)
+        recalc_action.triggered.connect(self._on_recalculate)
         tools_menu.addAction(recalc_action)
         
         # Help Menu
@@ -199,4 +254,158 @@ class MainWindow(QMainWindow):
             f"{APP_NAME} v{APP_VERSION}\n\n"
             "A mining operations tracker for Out of Ore.\n\n"
             "Track transactions, manage inventory, and audit save files."
+        )
+    
+    def _on_fuel_calculator(self):
+        """Open Fuel Calculator dialog."""
+        from ui.dialogs.tools_dialogs import FuelCalculatorDialog
+        
+        # Get fuel price from settings if available
+        fuel_price = 0.32
+        if hasattr(self, 'settings_tab'):
+            fuel_price = self.settings_tab.get_fuel_price()
+        
+        dialog = FuelCalculatorDialog(fuel_price=fuel_price, parent=self)
+        dialog.exec()
+    
+    def _on_discount_calculator(self):
+        """Open Discount Calculator dialog."""
+        from ui.dialogs.tools_dialogs import DiscountCalculatorDialog
+        
+        # Get skill levels from settings if available
+        vn_level = 0
+        if_level = 0
+        if hasattr(self, 'settings_tab'):
+            vn_level = self.settings_tab.get_setting("vendor_negotiation_level") or 0
+            if_level = self.settings_tab.get_setting("investment_forecasting_level") or 0
+        
+        dialog = DiscountCalculatorDialog(vn_level=vn_level, if_level=if_level, parent=self)
+        dialog.exec()
+    
+    def _on_split_calculator(self):
+        """Open Split Calculator dialog."""
+        from ui.dialogs.tools_dialogs import SplitCalculatorDialog
+        
+        # Get split percentages from settings if available
+        personal_pct = 0.10
+        company_pct = 0.90
+        if hasattr(self, 'settings_tab'):
+            personal_pct = self.settings_tab.get_personal_split()
+            company_pct = self.settings_tab.get_company_split()
+        
+        dialog = SplitCalculatorDialog(personal_pct=personal_pct, company_pct=company_pct, parent=self)
+        dialog.exec()
+    
+    def _on_import_excel(self):
+        """Open Import from Excel dialog."""
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import from Excel",
+            "",
+            "Excel Files (*.xlsx *.xls);;All Files (*)"
+        )
+        
+        if file_path:
+            QMessageBox.information(
+                self,
+                "Import",
+                f"Import from: {file_path}\n\n"
+                "Full import functionality coming soon!"
+            )
+    
+    def _on_export_excel(self):
+        """Open Export to Excel dialog."""
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export to Excel",
+            "frontier_mining_export.xlsx",
+            "Excel Files (*.xlsx);;All Files (*)"
+        )
+        
+        if file_path:
+            QMessageBox.information(
+                self,
+                "Export",
+                f"Export to: {file_path}\n\n"
+                "Full export functionality coming soon!"
+            )
+    
+    def _on_advance_game_day(self):
+        """Open Advance Game Day dialog."""
+        from ui.dialogs.tools_dialogs import AdvanceGameDayDialog
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # Get current date from settings if available
+        current_date = "04/23/2021"
+        days_played = 1
+        if hasattr(self, 'settings_tab'):
+            game_date = self.settings_tab.get_setting("current_game_date")
+            if game_date:
+                current_date = game_date.strftime("%m/%d/%Y")
+            start_date = self.settings_tab.get_setting("game_start_date")
+            if start_date and game_date:
+                days_played = (game_date - start_date).days + 1
+        
+        dialog = AdvanceGameDayDialog(current_date=current_date, days_played=days_played, parent=self)
+        if dialog.exec():
+            days = dialog.get_days_to_advance()
+            if days > 0 and hasattr(self, 'settings_tab'):
+                # Update the date in settings
+                from datetime import timedelta
+                current = self.settings_tab.get_setting("current_game_date")
+                if current:
+                    new_date = current + timedelta(days=days)
+                    from PyQt6.QtCore import QDate
+                    self.settings_tab.current_game_date.setDate(
+                        QDate(new_date.year, new_date.month, new_date.day)
+                    )
+                    QMessageBox.information(
+                        self,
+                        "Day Advanced",
+                        f"Game day advanced by {days} day(s).\n\n"
+                        f"New date: {new_date.strftime('%m/%d/%Y')}"
+                    )
+    
+    def _on_challenge_status(self):
+        """Open Challenge Status dialog."""
+        from ui.dialogs.tools_dialogs import ChallengeStatusDialog
+        
+        dialog = ChallengeStatusDialog(parent=self)
+        
+        # Update with current settings if available
+        if hasattr(self, 'settings_tab'):
+            settings = self.settings_tab.settings
+            oil_enabled, oil_cap, oil_sold = self.settings_tab.get_oil_cap()
+            
+            # Get difficulty description
+            difficulty = settings.get("difficulty_level", "Easy")
+            presets = self.settings_tab.DIFFICULTY_PRESETS
+            description = presets.get(difficulty, {}).get("description", "")
+            
+            dialog.update_status(
+                difficulty=difficulty,
+                description=description,
+                oil_sold=oil_sold,
+                oil_cap=oil_cap,
+                oil_enabled=oil_enabled,
+                daily_enabled=settings.get("daily_limit_enabled", False),
+                daily_limit=settings.get("daily_limit_amount", 0),
+                daily_spent=0,  # Would need to calculate from ledger
+                bar_threshold=settings.get("bar_threshold", 5000),
+                current_balance=0,  # Would need to get from ledger
+            )
+        
+        dialog.exec()
+    
+    def _on_recalculate(self):
+        """Recalculate all balances."""
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self,
+            "Recalculate",
+            "Recalculate balances functionality coming soon!"
         )

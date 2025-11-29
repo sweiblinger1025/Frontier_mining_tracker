@@ -15,6 +15,9 @@ from ui.tabs.recipes_subtab import RecipesSubTab
 from ui.tabs.locations_subtab import LocationsSubTab
 from ui.tabs.material_movement_tab import MaterialMovementTab
 from ui.tabs.inventory_tab import InventoryTab
+from ui.tabs.settings_tab import SettingsTab
+from ui.tabs.budget_planner_tab import BudgetPlannerTab
+from ui.tabs.roi_tracker_tab import ROITrackerTab
 
 __all__ = [
     "ReferenceDataTab",
@@ -29,4 +32,7 @@ __all__ = [
     "RecipesSubTab",
     "MaterialMovementTab",
     "InventoryTab",
+    "SettingsTab",
+    "BudgetPlannerTab",
+    "ROITrackerTab",
 ]
