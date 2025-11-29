@@ -61,6 +61,7 @@ class MainWindow(QMainWindow):
         from ui.tabs.ledger_tab import LedgerTab
         from ui.tabs.auditor_tab import AuditorTab
         from ui.tabs.material_movement_tab import MaterialMovementTab
+        from ui.tabs.inventory_tab import InventoryTab
         
         # Create tabs
         for tab_name, tab_id in TABS:
@@ -76,6 +77,9 @@ class MainWindow(QMainWindow):
             elif tab_id == "material":
                 tab = MaterialMovementTab()
                 self.material_movement_tab = tab
+            elif tab_id == "inventory":
+                tab = InventoryTab()
+                self.inventory_tab = tab
             else:
                 # Placeholder for other tabs
                 tab = self._create_placeholder_tab(tab_name)
