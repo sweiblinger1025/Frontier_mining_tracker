@@ -505,10 +505,10 @@ class DashboardTab(QWidget):
                 # For purchases/fuel: show Personal Expense (col 11)
                 personal_income = ledger.table.item(ledger_row, 9)
                 personal_expense = ledger.table.item(ledger_row, 11)
-
+                
                 income_text = personal_income.text() if personal_income else ""
                 expense_text = personal_expense.text() if personal_expense else ""
-
+                
                 if income_text and income_text != "$0" and income_text != "":
                     amount_item = QTableWidgetItem(income_text)
                     amount_item.setForeground(QColor("#008800"))
@@ -519,26 +519,26 @@ class DashboardTab(QWidget):
                     # Fallback to Total column
                     total_item = ledger.table.item(ledger_row, 8)
                     amount_item = QTableWidgetItem(total_item.text() if total_item else "$0")
-
+                
                 amount_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.activity_table.setItem(i, 2, amount_item)
-
+                
                 # Account (col 13)
                 account_item = ledger.table.item(ledger_row, 13)
                 account_text = account_item.text() if account_item else ""
                 self.activity_table.setItem(i, 3, QTableWidgetItem(account_text))
-
+                
                 # Balance - Personal Balance (col 16)
                 balance_item = ledger.table.item(ledger_row, 16)
                 balance_text = balance_item.text() if balance_item else ""
                 balance_cell = QTableWidgetItem(balance_text)
                 balance_cell.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.activity_table.setItem(i, 4, balance_cell)
-
+                
         except Exception as e:
             print(f"Error updating recent activity: {e}")
             self.activity_table.setRowCount(0)
-
+    
     def _update_status_banner(self):
         """Update the status banner based on current state."""
         try:
@@ -546,29 +546,29 @@ class DashboardTab(QWidget):
             ledger = self.main_window.ledger_tab
             balances = ledger.get_current_balances()
             total = balances.get("personal", 0) + balances.get("company", 0)
-
+            
             # Check budget status
             can_afford = True
             if hasattr(self.main_window, 'budget_planner_tab'):
                 bp = self.main_window.budget_planner_tab
                 settings = bp.get_settings()
                 available = settings.get("personal_balance", 0)
-
+                
                 # Calculate total planned
                 equipment_total = sum(
                     item.get("price", 0) * item.get("quantity", 1)
                     for item in bp.equipment_items
                     if isinstance(item, dict) and item.get("include", True)
                 )
-
+                
                 facility_total = 0
                 for setup in bp.power_setups:
                     if isinstance(setup, dict) and setup.get("include", True):
                         facility_total += setup.get("total_cost", 0)
-
+                
                 planned_total = equipment_total + facility_total
                 can_afford = available >= planned_total or planned_total == 0
-
+            
             # Determine status
             if total >= 100000 and can_afford:
                 self.status_icon.setText("✅")
@@ -586,47 +586,47 @@ class DashboardTab(QWidget):
                 self.status_icon.setText("⚠️")
                 self.status_label.setText("LOW FUNDS - Consider selling assets")
                 self.status_frame.setStyleSheet("background-color: #FFF2CC;")
-
+            
             if total < 10000:
                 self.status_icon.setText("🚨")
                 self.status_label.setText("CRITICAL - Funds dangerously low!")
                 self.status_frame.setStyleSheet("background-color: #F8D6D6;")
-
+            
             # Update day counter (placeholder - could be from settings)
             self.day_label.setText("Day: 1")
-
+            
         except Exception as e:
             print(f"Error updating status banner: {e}")
             self.status_label.setText("Dashboard Ready")
-
+    
     def _go_to_ledger(self):
         """Navigate to Ledger tab."""
         for i in range(self.main_window.tab_widget.count()):
             if self.main_window.tab_widget.tabText(i) == "Ledger":
                 self.main_window.tab_widget.setCurrentIndex(i)
                 break
-
+    
     def _go_to_roi_tracker(self):
         """Navigate to ROI Tracker tab."""
         for i in range(self.main_window.tab_widget.count()):
             if self.main_window.tab_widget.tabText(i) == "ROI Tracker":
                 self.main_window.tab_widget.setCurrentIndex(i)
                 break
-
+    
     def _go_to_budget_planner(self):
         """Navigate to Budget Planner tab."""
         for i in range(self.main_window.tab_widget.count()):
             if self.main_window.tab_widget.tabText(i) == "Budget Planner":
                 self.main_window.tab_widget.setCurrentIndex(i)
                 break
-
+    
     def _go_to_inventory(self):
         """Navigate to Inventory tab."""
         for i in range(self.main_window.tab_widget.count()):
             if self.main_window.tab_widget.tabText(i) == "Inventory":
                 self.main_window.tab_widget.setCurrentIndex(i)
                 break
-
+    
     def showEvent(self, event):
         """Refresh dashboard when tab is shown."""
         super().showEvent(event)

@@ -1,58 +1,107 @@
 # Frontier Mining Tracker
 
-A desktop application for tracking mining operations in the game **Out of Ore**. Built with Python and PyQt6.
+A comprehensive desktop application for tracking mining operations in the game **Out of Ore**. Built with Python and PyQt6.
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
+![Lines of Code](https://img.shields.io/badge/lines-19%2C000+-purple)
 
 ## Overview
 
-Frontier Mining Tracker helps players manage their mining operations with proper bookkeeping practices. Originally designed for Hardcore mode playthroughs, it supports all game modes and provides comprehensive transaction tracking, reference data management, and financial analysis.
+Frontier Mining Tracker helps players manage their mining operations with proper bookkeeping practices. Originally designed for Hardcore mode playthroughs with $100,000 starting capital, it supports all game modes and provides comprehensive transaction tracking, inventory management, production logging, and financial analysis.
 
 ## Features
 
-### Reference Data Tab
-- **Item Database**: 500+ items with buy/sell prices, categories, and trading rules
-- **Skill Discounts**: Vendor Negotiation (VN) and Investment Forecasting (IF) discount calculations
-- **Bulk Pricing**: Supports decimal unit prices for bulk sales (qty ≥ 2)
-- **Editable Rules**: Can Buy/Can Sell permissions editable per item
-- **Search & Filter**: Find items quickly by name, category, or properties
-- **Import Support**: Import from Excel (.xlsx) or CSV files
+### 📊 Dashboard
+- **Financial Summary**: Net Worth, Company Balance, Personal Balance, Transaction Count
+- **Oil Lifetime Progress**: Track progress toward the 10,000 oil cap with visual progress bar
+- **ROI Performance Highlights**: Top performer, total profit, success rate
+- **Recent Activity**: Last 5 transactions with amounts, accounts, and running balances
+- **Quick Actions**: Jump to Add Transaction, ROI Tracker, Budget Planner, or Inventory
+- **Day Counter**: Track in-game days elapsed
 
-### Ledger Tab
-- **Opening Balance**: Configurable starting capital for any game mode
-  - Hardcore: $100,000
-  - Standard: Any amount
-  - Creative: N/A (not tracked)
-- **Transaction Types**: Purchase, Sale, Transfer, Opening
+### 📒 Ledger Tab
+- **Opening Balance**: Configurable starting capital (Hardcore: $100,000)
+- **Transaction Types**: Purchase, Sale, Transfer, Fuel
+- **Row Color Coding**:
+  - Sale: Light green
+  - Purchase: Light red
+  - Transfer: Light blue
+  - Fuel: Light orange
+  - Opening: Light gray
+- **In-Game Dates**: Uses game date from Settings (not real date)
 - **Auto-Calculation**: 
   - Income/expense split based on account and item type
   - 10% Personal / 90% Company split for raw ore and refined oil sales
-- **Bulk Pricing Logic**: 
-  - Single unit (qty=1): Rounds UP
-  - Bulk (qty≥2): Exact calculation
+- **Skill Discounts**: Vendor Negotiation (0-7) and Investment Forecasting (0-6)
+- **Bulk Pricing Logic**: Single unit rounds UP, bulk uses exact calculation
 - **Running Balances**: Automatic Personal and Company balance tracking
 - **Import/Export**: CSV and Excel support
 
-### Coming Soon
-- Dashboard (financial overview)
-- Auditor (save file verification)
-- ROI Tracker
-- Inventory Management
-- Material Movement
-- Budget Planner
-- Locations
-- Settings
+### 📦 Reference Data Tab
+Six sub-tabs for comprehensive game data:
+- **Items**: 500+ items with buy/sell prices, categories, and trading rules
+- **Factory Equipment**: Workbenches and production facilities
+- **Vehicles**: All vehicles with specs and pricing
+- **Buildings**: Construction elements and structures
+- **Recipes**: 121 crafting recipes organized by workbench
+- **Locations**: Game locations and trading posts
+
+### 🏭 Production Tab
+Three sub-tabs for production management:
+- **Calculator**: Recipe cost/profit analysis
+- **Log**: Track production runs with inventory integration
+  - Concrete quality selector (Rough/Standard/Polished)
+  - Deduct inputs from inventory option
+  - Add outputs to inventory option
+- **Cost Analysis**: Production profitability reports
+
+### 📦 Inventory Tab
+- **Summary Dashboard**: Total items, total value, low stock alerts
+- **Filterable Inventory Table**: Search, filter by category, stock status
+- **30 Categories**: Matching all in-game categories exactly
+  - Resources: Ore, Fluids, Dirt, Rock, Wood
+  - Materials: Ore (bars), Concrete, Sub Parts, Fuel, Metals, Wood
+  - Equipment: Batteries, ECUs, Filters, Hoses, Injectors, Pumps, Rams, Sensors, Sub Parts, Turbos, Wearparts
+  - Buildings: Steel, Steel Doors, Steel Mesh, Concrete (3 qualities), Wood, Quest buildings
+- **Oil Lifetime Cap Tracker**: Configurable cap with progress monitoring
+- **Stock Status**: Color-coded (Good/Low/Critical/Out)
+- **Reference Data Integration**: Prices pulled from Items tab
+
+### 🚚 Material Movement Tab
+- **Session Types**: Hauling and Processing
+- **Active Session Tracking**: Start/stop timer, automatic duration
+- **Vehicle Integration**: Auto-fill specs from Reference Data
+- **Ore Extraction Tracking**: For processing sessions
+- **Revenue Calculations**: Based on current prices
+
+### 📈 ROI Tracker
+- Track return on investment for equipment and vehicles
+- Performance metrics and profitability analysis
+
+### 💰 Budget Planner Tab
+- **Equipment Planning**: Plan workbench and tool purchases
+- **Facility Planning**: Plan building and infrastructure investments
+- **Cost Projections**: Total costs with skill discounts applied
+
+### ⚙️ Settings Tab
+- **Game Dates**: Game Start Date and Current Game Date
+- **Skill Levels**: Vendor Negotiation (0-7), Investment Forecasting (0-6)
+- **Oil Lifetime Cap**: Configurable limit (default 10,000)
+- **Game Mode**: Hardcore/Standard/Creative
+
+### 🔍 Auditor Tab
+- Save file parsing and verification
+- Compare tracker data against game saves
 
 ## Game Mechanics Supported
 
 ### Account System
 - **Personal Account**: Day-to-day operations, starting capital
-- **Company Account**: Long-term savings for map expansions, carries over between playthroughs
+- **Company Account**: Long-term savings, carries over between playthroughs
 
 ### Income Split (Personal Account Sales)
-When selling through the Personal account:
 | Item Type | Personal | Company |
 |-----------|----------|---------|
 | Raw Ores (Resources - Ore) | 10% | 90% |
@@ -63,6 +112,11 @@ When selling through the Personal account:
 - **Vendor Negotiation (VN)**: 0-7 levels, 0.5% per level on ALL items
 - **Investment Forecasting (IF)**: 0-6 levels, 0.5% per level on VEHICLES only
 - Maximum combined discount on vehicles: 6.5%
+
+### Concrete Quality Tiers
+- **Rough Concrete**: Lower sell prices
+- **Standard Concrete**: Base prices
+- **Polished Concrete**: Higher sell prices
 
 ### Pricing
 - **Buy Price**: Whole numbers
@@ -77,11 +131,7 @@ When selling through the Personal account:
 
 ### Setup
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/frontier-mining-tracker.git
-cd frontier-mining-tracker
-```
+1. Clone or download the repository
 
 2. Create a virtual environment (recommended):
 ```bash
@@ -114,61 +164,93 @@ frontier_mining_tracker/
 ├── main.py                 # Application entry point
 ├── requirements.txt        # Python dependencies
 ├── README.md              # This file
+├── FUTURE_UPDATES.md      # Planned features
 ├── config/
 │   ├── settings.py        # App configuration
 │   └── item_codes.py      # Game item codes
 ├── core/
 │   ├── database.py        # SQLite database operations
 │   ├── models.py          # Data models
-│   └── calculations.py    # Financial calculations
+│   ├── calculations.py    # Financial calculations
+│   └── session_manager.py # Session state management
 ├── importers/
 │   └── excel_importer.py  # Excel/CSV import functionality
 ├── ui/
 │   ├── main_window.py     # Main application window
+│   ├── dialogs/           # Dialog windows
 │   └── tabs/
-│       ├── reference_tab.py  # Reference Data tab
-│       └── ledger_tab.py     # Ledger tab
-├── auditor/               # Save file auditing (coming soon)
+│       ├── dashboard_tab.py
+│       ├── ledger_tab.py
+│       ├── reference_tab.py
+│       ├── production_tab.py
+│       ├── inventory_tab.py
+│       ├── material_movement_tab.py
+│       ├── roi_tracker_tab.py
+│       ├── budget_planner_tab.py
+│       ├── auditor_tab.py
+│       ├── settings_tab.py
+│       ├── recipes_subtab.py
+│       ├── vehicles_subtab.py
+│       ├── factory_subtab.py
+│       ├── buildings_subtab.py
+│       └── locations_subtab.py
+├── auditor/
+│   └── save_parser.py     # Game save file parsing
 ├── resources/
 │   └── icons/             # Application icons
 ├── utils/                 # Utility functions
+├── sessions/              # Session save files
 └── data/
     └── frontier_mining.db # SQLite database (created on first run)
 ```
 
 ## Usage
 
-### Importing Data
+### Getting Started
 
-1. **Reference Data**: 
-   - Go to Reference Data tab
-   - Click "Import Excel" or "Import CSV"
-   - Select your Price Tables file
+1. **Import Reference Data**: 
+   - Go to Reference Data → Items tab
+   - Click "Import Excel" and select your Price Tables file
+   - This populates item prices for auto-complete and calculations
 
-2. **Existing Ledger**:
-   - Go to Ledger tab
-   - Click "Import"
-   - Select your Excel file with a "Ledger" sheet
+2. **Set Game Date**:
+   - Go to Settings tab
+   - Set Game Start Date (default: April 22, 2021)
+   - Update Current Game Date as you play
+
+3. **Configure Opening Balance**:
+   - In Ledger tab, set Personal Balance (default $100,000 for Hardcore)
+   - Set Company Balance if carrying over from previous game
 
 ### Recording Transactions
 
-1. Click "Add Transaction"
-2. Select transaction type (Purchase/Sale/Transfer)
-3. Type item name (autocomplete available)
-4. Category and price auto-fill from Reference Data
+1. Click "Add Transaction" in Ledger tab
+2. Select transaction type (Purchase/Sale/Transfer/Fuel)
+3. Type item name (autocomplete from Reference Data)
+4. Category and price auto-fill
 5. Adjust quantity as needed
 6. Select Account (Personal/Company)
 7. Click OK
 
-### Opening Balance
+### Tracking Production
 
-- Set your starting capital in the Opening Balance section
-- Personal Balance: Your chosen starting amount
-- Company Balance: Carryover from previous playthroughs (or $0)
+1. Go to Production → Log tab
+2. Select building (workbench)
+3. For Concrete Mixer, select quality tier
+4. Choose recipe and quantity
+5. Enable "Deduct inputs" and/or "Add outputs" for inventory sync
+6. Click "Log Production"
+
+### Managing Inventory
+
+1. Go to Inventory tab
+2. Use "Add Item" or let Production tab auto-add
+3. Filter by category or stock status
+4. Monitor Oil Lifetime Cap progress
 
 ## Data Files
 
-The application expects Excel files with the following sheets:
+The application can import Excel files with these sheets:
 
 ### Price Tables (Dashboard file)
 | Column | Description |
@@ -178,24 +260,15 @@ The application expects Excel files with the following sheets:
 | Buy Price | Purchase price |
 | Sell Price | Sale price (bulk rate) |
 
-### Item Rules (Tracker file)
+### Ledger Import
 | Column | Description |
 |--------|-------------|
-| Item Name | Name of the item |
-| Category | Item category |
-| Can Purchase? | Yes/No |
-| Can Sell? | Yes/No |
-
-### Ledger
-| Column | Description |
-|--------|-------------|
-| Date | Transaction date |
-| Type | Purchase/Sale/Transfer/Opening |
+| Date | Transaction date (in-game) |
+| Type | Purchase/Sale/Transfer/Fuel |
 | Item | Item name |
 | Category | Item category |
 | Qty | Quantity |
 | Unit Price | Price per unit |
-| ... | (additional columns) |
 
 ## Contributing
 
