@@ -5,11 +5,23 @@ A comprehensive desktop application for tracking mining operations in the game *
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
-![Lines of Code](https://img.shields.io/badge/lines-19%2C000+-purple)
+![Lines of Code](https://img.shields.io/badge/lines-22%2C000+-purple)
 
 ## Overview
 
 Frontier Mining Tracker helps players manage their mining operations with proper bookkeeping practices. Originally designed for Hardcore mode playthroughs with $100,000 starting capital, it supports all game modes and provides comprehensive transaction tracking, inventory management, production logging, and financial analysis.
+
+## What's New in v0.1.0
+
+### 🆕 New Features
+
+- **Ledger to Inventory Sync**: Sync button scans Ledger for ore/oil sales and decrements inventory quantities with confirmation dialog
+- **Vehicle Fuel Tracking**: Track fuel consumption by vehicle in ROI Tracker with costs and transaction counts
+- **Production → Ledger Integration**: Option to record sales directly to Ledger when logging production (sells immediately, skips inventory)
+- **Daily Summary/Journal**: Dashboard section showing day's activities, income/expenses, and personal notes for each game day
+- **Equipment Maintenance Tracking**: Log repairs, parts replacement, and scheduled service with costs in ROI Tracker
+- **Export Reports**: Comprehensive export dialog with options for Ledger, Summary, Inventory, ROI, and Full Report exports
+- **Undo/Redo Transactions**: Undo button in Ledger with Ctrl+Z/Ctrl+Y support for add and delete actions
 
 ## Features
 
@@ -17,6 +29,11 @@ Frontier Mining Tracker helps players manage their mining operations with proper
 - **Financial Summary**: Net Worth, Company Balance, Personal Balance, Transaction Count
 - **Oil Lifetime Progress**: Track progress toward the 10,000 oil cap with visual progress bar
 - **ROI Performance Highlights**: Top performer, total profit, success rate
+- **📓 Daily Journal** *(NEW)*: 
+  - Date navigation with Prev/Next/Today buttons
+  - Day's activities table (from Ledger and Production)
+  - Daily income, expenses, and net totals
+  - Personal notes with save functionality
 - **Recent Activity**: Last 5 transactions with amounts, accounts, and running balances
 - **Quick Actions**: Jump to Add Transaction, ROI Tracker, Budget Planner, or Inventory
 - **Day Counter**: Track in-game days elapsed
@@ -24,6 +41,8 @@ Frontier Mining Tracker helps players manage their mining operations with proper
 ### 📒 Ledger Tab
 - **Opening Balance**: Configurable starting capital (Hardcore: $100,000)
 - **Transaction Types**: Purchase, Sale, Transfer, Fuel
+- **Vehicle Tracking**: Select vehicle for Fuel transactions *(NEW)*
+- **↩️ Undo / ↪️ Redo** *(NEW)*: Revert or redo add/delete actions with history
 - **Row Color Coding**:
   - Sale: Light green
   - Purchase: Light red
@@ -43,7 +62,7 @@ Frontier Mining Tracker helps players manage their mining operations with proper
 Six sub-tabs for comprehensive game data:
 - **Items**: 500+ items with buy/sell prices, categories, and trading rules
 - **Factory Equipment**: Workbenches and production facilities
-- **Vehicles**: All vehicles with specs and pricing
+- **Vehicles**: All vehicles with specs and pricing (68 vehicles)
 - **Buildings**: Construction elements and structures
 - **Recipes**: 121 crafting recipes organized by workbench
 - **Locations**: Game locations and trading posts
@@ -55,11 +74,13 @@ Three sub-tabs for production management:
   - Concrete quality selector (Rough/Standard/Polished)
   - Deduct inputs from inventory option
   - Add outputs to inventory option
+  - **📒 Record sale to Ledger** *(NEW)*: Sell production directly without adding to inventory
 - **Cost Analysis**: Production profitability reports
 
 ### 📦 Inventory Tab
 - **Summary Dashboard**: Total items, total value, low stock alerts
 - **Filterable Inventory Table**: Search, filter by category, stock status
+- **🔄 Sync from Ledger** *(NEW)*: Auto-decrement quantities based on sales
 - **30 Categories**: Matching all in-game categories exactly
   - Resources: Ore, Fluids, Dirt, Rock, Wood
   - Materials: Ore (bars), Concrete, Sub Parts, Fuel, Metals, Wood
@@ -77,8 +98,13 @@ Three sub-tabs for production management:
 - **Revenue Calculations**: Based on current prices
 
 ### 📈 ROI Tracker
-- Track return on investment for equipment and vehicles
-- Performance metrics and profitability analysis
+- **Investment Tracking**: Track return on investment for equipment and vehicles
+- **⛽ Fuel Tab** *(NEW)*: View fuel costs by vehicle from Ledger
+- **🔧 Maintenance Tab** *(NEW)*: 
+  - Log repairs, parts replacement, scheduled service
+  - Track costs per equipment
+  - Maintenance types: Repair, Parts Replacement, Scheduled Service, Inspection, Upgrade, Other
+- **Performance Metrics**: Profitability analysis and ROI calculations
 
 ### 💰 Budget Planner Tab
 - **Equipment Planning**: Plan workbench and tool purchases
@@ -94,6 +120,14 @@ Three sub-tabs for production management:
 ### 🔍 Auditor Tab
 - Save file parsing and verification
 - Compare tracker data against game saves
+
+### 📤 Export Reports *(NEW)*
+Access via File → Export to Excel (Ctrl+E):
+- **Ledger Export**: All transactions to CSV/Excel with date filtering
+- **Summary Report**: Income/expenses grouped by day, week, or month
+- **Inventory Export**: Current stock levels with values
+- **ROI Export**: Investment data with maintenance and fuel costs
+- **Full Report**: Multi-sheet Excel workbook with all data
 
 ## Game Mechanics Supported
 
@@ -177,7 +211,9 @@ frontier_mining_tracker/
 │   └── excel_importer.py  # Excel/CSV import functionality
 ├── ui/
 │   ├── main_window.py     # Main application window
-│   ├── dialogs/           # Dialog windows
+│   ├── dialogs/
+│   │   ├── tools_dialogs.py
+│   │   └── export_dialog.py  # Export reports dialog
 │   └── tabs/
 │       ├── dashboard_tab.py
 │       ├── ledger_tab.py
@@ -226,11 +262,12 @@ frontier_mining_tracker/
 
 1. Click "Add Transaction" in Ledger tab
 2. Select transaction type (Purchase/Sale/Transfer/Fuel)
-3. Type item name (autocomplete from Reference Data)
-4. Category and price auto-fill
-5. Adjust quantity as needed
-6. Select Account (Personal/Company)
-7. Click OK
+3. For Fuel, select vehicle from dropdown
+4. Type item name (autocomplete from Reference Data)
+5. Category and price auto-fill
+6. Adjust quantity as needed
+7. Select Account (Personal/Company)
+8. Click OK
 
 ### Tracking Production
 
@@ -238,15 +275,50 @@ frontier_mining_tracker/
 2. Select building (workbench)
 3. For Concrete Mixer, select quality tier
 4. Choose recipe and quantity
-5. Enable "Deduct inputs" and/or "Add outputs" for inventory sync
+5. Options:
+   - "Deduct inputs from inventory" - reduces input materials
+   - "Add outputs to inventory" - adds produced items to stock
+   - "Record sale to Ledger" - sells directly (skips inventory)
 6. Click "Log Production"
 
 ### Managing Inventory
 
 1. Go to Inventory tab
 2. Use "Add Item" or let Production tab auto-add
-3. Filter by category or stock status
-4. Monitor Oil Lifetime Cap progress
+3. Use "Sync from Ledger" to auto-decrement sold items
+4. Filter by category or stock status
+5. Monitor Oil Lifetime Cap progress
+
+### Exporting Reports
+
+1. Go to File → Export to Excel (Ctrl+E)
+2. Select report type:
+   - **Ledger**: All transactions with optional date filter
+   - **Summary**: Financial summary by period
+   - **Inventory**: Current stock snapshot
+   - **ROI**: Investment and maintenance data
+   - **Full Report**: Everything in one Excel workbook
+3. Choose file location and export
+
+### Using Undo/Redo
+
+- **Undo**: Click ↩️ Undo button or press Ctrl+Z
+- **Redo**: Click ↪️ Redo button or press Ctrl+Y
+- Supports undoing: Add transaction, Delete transaction
+- Up to 50 actions in history
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+N | New Transaction |
+| Ctrl+S | Save Session |
+| Ctrl+O | Load Session |
+| Ctrl+E | Export Reports |
+| Ctrl+Z | Undo |
+| Ctrl+Y | Redo |
+| Ctrl+1-9 | Navigate to tabs |
+| Delete | Delete selected item |
 
 ## Data Files
 
@@ -286,3 +358,20 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Disclaimer
 
 This is a fan-made tool and is not affiliated with or endorsed by the developers of Out of Ore.
+
+---
+
+## Version History
+
+### v0.1.0 (2024-11-30)
+- ✅ Ledger to Inventory Sync
+- ✅ Vehicle Fuel Tracking
+- ✅ Production Log → Ledger Integration
+- ✅ Daily Summary/Journal
+- ✅ Equipment Maintenance Tracking
+- ✅ Export Reports
+- ✅ Undo/Revert Last Transaction
+- 🔧 Fixed Built Filter Kit recipe name
+- 🔧 Fixed Materials - Sub Parts sell prices
+- 🔧 Standardized all date fields to use in-game dates
+- 🔧 ROI Tracker layout optimization

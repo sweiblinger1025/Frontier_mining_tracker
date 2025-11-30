@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
     QFormLayout, QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit,
     QDateEdit, QDialog, QDialogButtonBox, QRadioButton, QButtonGroup,
-    QMessageBox, QAbstractItemView, QFrame, QTextEdit
+    QMessageBox, QAbstractItemView, QFrame, QTextEdit, QTabWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from PyQt6.QtGui import QFont, QColor
@@ -34,28 +34,67 @@ class ROITrackerTab(QWidget):
     def _setup_ui(self):
         """Set up the ROI Tracker interface."""
         layout = QVBoxLayout(self)
-        layout.setSpacing(10)
+        layout.setSpacing(6)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # === Summary Dashboard ===
         self._create_summary_section(layout)
         
-        # === Add Investment Section ===
-        self._create_add_investment_section(layout)
+        # === Middle Section: Fuel/Maintenance (left) + Add Investment & Table (right) ===
+        middle_layout = QHBoxLayout()
+        middle_layout.setSpacing(8)
+        middle_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        # === Investment Table ===
-        self._create_investment_table(layout)
+        # Left: Fuel Tracking + Maintenance Tracking in tabs
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(4)
+        
+        self.ops_tabs = QTabWidget()
+        self.ops_tabs.setMaximumHeight(220)
+        
+        # Fuel tab
+        fuel_widget = QWidget()
+        self._create_fuel_content(fuel_widget)
+        self.ops_tabs.addTab(fuel_widget, "⛽ Fuel")
+        
+        # Maintenance tab
+        maint_widget = QWidget()
+        self._create_maintenance_content(maint_widget)
+        self.ops_tabs.addTab(maint_widget, "🔧 Maintenance")
+        
+        left_layout.addWidget(self.ops_tabs)
+        left_layout.addStretch()  # Push tabs to top
+        middle_layout.addWidget(left_widget, 1)
+        
+        # Right: Add Investment + Investment Table stacked vertically
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(6)
+        
+        self._create_add_investment_section(right_layout)
+        self._create_investment_table(right_layout)
+        
+        middle_layout.addWidget(right_widget, 2)  # Right side gets more space
+        
+        layout.addLayout(middle_layout, 1)  # Takes remaining space
         
         # Initial update
         self._update_summary()
+        self._update_fuel_summary()
     
     def _create_summary_section(self, parent_layout):
         """Create the summary dashboard cards."""
         summary_group = QGroupBox("📊 ROI Summary Dashboard")
         summary_layout = QVBoxLayout(summary_group)
+        summary_layout.setContentsMargins(8, 8, 8, 8)
+        summary_layout.setSpacing(8)
         
         # Row 1: 3 cards
         row1 = QHBoxLayout()
-        row1.setSpacing(15)
+        row1.setSpacing(10)
         
         # Total Invested Card
         invested_card = self._create_summary_card(
@@ -84,7 +123,7 @@ class ROITrackerTab(QWidget):
         
         # Row 2: 3 cards
         row2 = QHBoxLayout()
-        row2.setSpacing(15)
+        row2.setSpacing(10)
         
         # Success Rate Card
         success_card = self._create_summary_card(
@@ -119,84 +158,289 @@ class ROITrackerTab(QWidget):
         card.setStyleSheet("background-color: #E8F4FD; border-radius: 5px;")
         
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(2)
         
         title_label = QLabel(title)
-        title_label.setFont(QFont("", 10, QFont.Weight.Bold))
+        title_label.setFont(QFont("", 9, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
         
         value_label = QLabel(value)
         value_label.setObjectName("value_label")
-        value_label.setFont(QFont("", 16, QFont.Weight.Bold))
+        value_label.setFont(QFont("", 14, QFont.Weight.Bold))
         value_label.setStyleSheet("color: #1F4E79;")
         value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(value_label)
         
         subtitle_label = QLabel(subtitle)
         subtitle_label.setObjectName("subtitle_label")
-        subtitle_label.setStyleSheet("color: #666666;")
+        subtitle_label.setStyleSheet("color: #666666; font-size: 9px;")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(subtitle_label)
         
         return card
     
+    def _create_fuel_section(self, parent_layout):
+        """Create the fuel tracking summary section - DEPRECATED, use _create_fuel_content."""
+        pass  # Kept for compatibility, actual content in _create_fuel_content
+    
+    def _create_fuel_content(self, parent_widget):
+        """Create fuel tracking content for tab."""
+        fuel_layout = QVBoxLayout(parent_widget)
+        fuel_layout.setContentsMargins(6, 6, 6, 6)
+        fuel_layout.setSpacing(4)
+        
+        # Summary row
+        summary_layout = QHBoxLayout()
+        summary_layout.setSpacing(10)
+        
+        self.fuel_total_label = QLabel("Total Fuel: 0 L")
+        self.fuel_total_label.setFont(QFont("", 9, QFont.Weight.Bold))
+        summary_layout.addWidget(self.fuel_total_label)
+        
+        self.fuel_cost_label = QLabel("Total Cost: $0")
+        self.fuel_cost_label.setFont(QFont("", 9, QFont.Weight.Bold))
+        self.fuel_cost_label.setStyleSheet("color: #c62828;")
+        summary_layout.addWidget(self.fuel_cost_label)
+        
+        summary_layout.addStretch()
+        
+        refresh_btn = QPushButton("🔄")
+        refresh_btn.setFixedSize(24, 24)
+        refresh_btn.setToolTip("Refresh fuel data from Ledger")
+        refresh_btn.clicked.connect(self._update_fuel_summary)
+        summary_layout.addWidget(refresh_btn)
+        
+        fuel_layout.addLayout(summary_layout)
+        
+        # Fuel table by vehicle
+        self.fuel_table = QTableWidget()
+        self.fuel_table.setColumnCount(4)
+        self.fuel_table.setHorizontalHeaderLabels(["Vehicle", "Liters", "Cost", "Txns"])
+        self.fuel_table.setAlternatingRowColors(True)
+        self.fuel_table.verticalHeader().setDefaultSectionSize(22)
+        
+        header = self.fuel_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        
+        fuel_layout.addWidget(self.fuel_table, 1)
+    
+    def _create_maintenance_content(self, parent_widget):
+        """Create maintenance tracking content for tab."""
+        maint_layout = QVBoxLayout(parent_widget)
+        maint_layout.setContentsMargins(6, 6, 6, 6)
+        maint_layout.setSpacing(4)
+        
+        # Summary row
+        summary_layout = QHBoxLayout()
+        summary_layout.setSpacing(10)
+        
+        self.maint_total_label = QLabel("Total: $0")
+        self.maint_total_label.setFont(QFont("", 9, QFont.Weight.Bold))
+        self.maint_total_label.setStyleSheet("color: #c62828;")
+        summary_layout.addWidget(self.maint_total_label)
+        
+        self.maint_count_label = QLabel("0 records")
+        summary_layout.addWidget(self.maint_count_label)
+        
+        summary_layout.addStretch()
+        
+        add_maint_btn = QPushButton("➕ Add")
+        add_maint_btn.setFixedWidth(50)
+        add_maint_btn.clicked.connect(self._add_maintenance)
+        summary_layout.addWidget(add_maint_btn)
+        
+        maint_layout.addLayout(summary_layout)
+        
+        # Maintenance table
+        self.maint_table = QTableWidget()
+        self.maint_table.setColumnCount(5)
+        self.maint_table.setHorizontalHeaderLabels(["Date", "Equipment", "Type", "Cost", "Notes"])
+        self.maint_table.setAlternatingRowColors(True)
+        self.maint_table.verticalHeader().setDefaultSectionSize(22)
+        self.maint_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        
+        header = self.maint_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        
+        maint_layout.addWidget(self.maint_table, 1)
+        
+        # Storage for maintenance records
+        self.maintenance_records = []
+    
+    def _add_maintenance(self):
+        """Show dialog to add maintenance record."""
+        dialog = MaintenanceDialog(self, self._get_current_game_date())
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            record = dialog.get_record()
+            if record:
+                self.maintenance_records.append(record)
+                self._update_maintenance_table()
+                self.data_changed.emit()
+    
+    def _update_maintenance_table(self):
+        """Update the maintenance table."""
+        self.maint_table.setRowCount(len(self.maintenance_records))
+        total_cost = 0
+        
+        for row, record in enumerate(self.maintenance_records):
+            # Date
+            date_str = record.get('date', '')
+            self.maint_table.setItem(row, 0, QTableWidgetItem(date_str))
+            
+            # Equipment
+            self.maint_table.setItem(row, 1, QTableWidgetItem(record.get('equipment', '')))
+            
+            # Type
+            self.maint_table.setItem(row, 2, QTableWidgetItem(record.get('type', '')))
+            
+            # Cost
+            cost = record.get('cost', 0)
+            total_cost += cost
+            cost_item = QTableWidgetItem(f"${cost:,.0f}")
+            cost_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            cost_item.setForeground(QColor("#c62828"))
+            self.maint_table.setItem(row, 3, cost_item)
+            
+            # Notes
+            self.maint_table.setItem(row, 4, QTableWidgetItem(record.get('notes', '')))
+        
+        self.maint_total_label.setText(f"Total: ${total_cost:,.0f}")
+        self.maint_count_label.setText(f"{len(self.maintenance_records)} records")
+    
+    def _update_fuel_summary(self):
+        """Update the fuel summary from Ledger data."""
+        try:
+            if not hasattr(self.main_window, 'ledger_tab'):
+                return
+            
+            ledger = self.main_window.ledger_tab
+            fuel_data = ledger.get_fuel_by_vehicle()
+            
+            # Calculate totals
+            total_liters = sum(v['liters'] for v in fuel_data.values())
+            total_cost = sum(v['cost'] for v in fuel_data.values())
+            
+            self.fuel_total_label.setText(f"Total Fuel: {total_liters:,} L")
+            self.fuel_cost_label.setText(f"Total Cost: ${total_cost:,.0f}")
+            
+            # Populate table
+            self.fuel_table.setRowCount(len(fuel_data))
+            
+            for row, (vehicle, data) in enumerate(sorted(fuel_data.items())):
+                # Vehicle name
+                self.fuel_table.setItem(row, 0, QTableWidgetItem(vehicle))
+                
+                # Liters
+                liters_item = QTableWidgetItem(f"{data['liters']:,}")
+                liters_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                self.fuel_table.setItem(row, 1, liters_item)
+                
+                # Cost
+                cost_item = QTableWidgetItem(f"${data['cost']:,.0f}")
+                cost_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                cost_item.setForeground(QColor("#c62828"))
+                self.fuel_table.setItem(row, 2, cost_item)
+                
+                # Transactions
+                txn_item = QTableWidgetItem(str(data['transactions']))
+                txn_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.fuel_table.setItem(row, 3, txn_item)
+                
+        except Exception as e:
+            print(f"Error updating fuel summary: {e}")
+    
     def _create_add_investment_section(self, parent_layout):
         """Create the add investment form."""
         add_group = QGroupBox("➕ Add Investment")
-        add_layout = QHBoxLayout(add_group)
+        add_layout = QVBoxLayout(add_group)
+        add_layout.setContentsMargins(6, 2, 6, 6)
+        add_layout.setSpacing(4)
         
-        # Item selection
-        add_layout.addWidget(QLabel("Item:"))
+        # Row 1: Item and Category
+        row1 = QHBoxLayout()
+        row1.setSpacing(4)
+        item_label = QLabel("Item:")
+        item_label.setFixedWidth(35)
+        row1.addWidget(item_label)
         self.item_combo = QComboBox()
         self.item_combo.setEditable(True)
-        self.item_combo.setMinimumWidth(200)
         self._populate_items()
-        add_layout.addWidget(self.item_combo)
+        row1.addWidget(self.item_combo, 1)
         
-        # Category (auto-filled)
-        add_layout.addWidget(QLabel("Category:"))
+        cat_label = QLabel("Cat:")
+        cat_label.setFixedWidth(25)
+        row1.addWidget(cat_label)
         self.category_label = QLabel("-")
-        self.category_label.setMinimumWidth(120)
-        add_layout.addWidget(self.category_label)
+        self.category_label.setMinimumWidth(100)
+        row1.addWidget(self.category_label)
+        add_layout.addLayout(row1)
         
         # Connect item change to update category
         self.item_combo.currentIndexChanged.connect(self._on_item_changed)
         
-        # Initial Cost
-        add_layout.addWidget(QLabel("Cost:"))
+        # Row 2: Cost, Date, and Buttons
+        row2 = QHBoxLayout()
+        row2.setSpacing(4)
+        cost_label = QLabel("Cost:")
+        cost_label.setFixedWidth(35)
+        row2.addWidget(cost_label)
         self.cost_spin = QDoubleSpinBox()
         self.cost_spin.setRange(0, 10000000)
-        self.cost_spin.setDecimals(2)
+        self.cost_spin.setDecimals(0)
         self.cost_spin.setPrefix("$")
-        self.cost_spin.setMinimumWidth(120)
-        add_layout.addWidget(self.cost_spin)
+        self.cost_spin.setMinimumWidth(90)
+        row2.addWidget(self.cost_spin)
         
-        # Purchase Date
-        add_layout.addWidget(QLabel("Date:"))
+        date_label = QLabel("Date:")
+        date_label.setFixedWidth(35)
+        row2.addWidget(date_label)
         self.date_edit = QDateEdit()
-        self.date_edit.setDate(QDate.currentDate())
         self.date_edit.setCalendarPopup(True)
-        add_layout.addWidget(self.date_edit)
+        self._set_investment_date_to_game_date()
+        row2.addWidget(self.date_edit)
         
-        # Utility checkbox
-        self.utility_check = QPushButton("🎮 Utility")
+        self.utility_check = QPushButton("🎮")
         self.utility_check.setCheckable(True)
-        self.utility_check.setToolTip("Mark as utility item (strategic value beyond direct ROI)")
-        add_layout.addWidget(self.utility_check)
+        self.utility_check.setFixedWidth(28)
+        self.utility_check.setToolTip("Mark as utility item")
+        row2.addWidget(self.utility_check)
         
-        # Add button
-        self.add_btn = QPushButton("Add Investment")
+        self.add_btn = QPushButton("➕ Add")
         self.add_btn.clicked.connect(self._add_investment)
-        add_layout.addWidget(self.add_btn)
+        row2.addWidget(self.add_btn)
         
-        add_layout.addStretch()
+        add_layout.addLayout(row2)
+        
         parent_layout.addWidget(add_group)
+    
+    def _set_investment_date_to_game_date(self):
+        """Set the date edit to the current in-game date from Settings."""
+        try:
+            if self.main_window and hasattr(self.main_window, 'settings_tab'):
+                settings = self.main_window.settings_tab
+                if hasattr(settings, 'current_game_date'):
+                    self.date_edit.setDate(settings.current_game_date.date())
+                    return
+        except Exception:
+            pass
+        # Fallback to game default date
+        self.date_edit.setDate(QDate(2021, 4, 22))
     
     def _create_investment_table(self, parent_layout):
         """Create the investment tracking table."""
         table_group = QGroupBox("📋 Investment Tracking")
         table_layout = QVBoxLayout(table_group)
+        table_layout.setContentsMargins(6, 2, 6, 6)
+        table_layout.setSpacing(4)
         
         # Toolbar
         toolbar = QHBoxLayout()
@@ -208,7 +452,7 @@ class ROITrackerTab(QWidget):
         toolbar.addStretch()
         
         self.total_label = QLabel("Total Invested: $0")
-        self.total_label.setFont(QFont("", 11, QFont.Weight.Bold))
+        self.total_label.setFont(QFont("", 10, QFont.Weight.Bold))
         toolbar.addWidget(self.total_label)
         
         table_layout.addLayout(toolbar)
@@ -224,12 +468,13 @@ class ROITrackerTab(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.table.setColumnWidth(0, 150)
         self.table.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed)
-        self.table.setColumnWidth(9, 120)
+        self.table.setColumnWidth(9, 100)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
-        table_layout.addWidget(self.table)
+        self.table.verticalHeader().setDefaultSectionSize(22)
+        table_layout.addWidget(self.table, 1)  # stretch to fill
         
-        parent_layout.addWidget(table_group)
+        parent_layout.addWidget(table_group, 1)  # stretch to fill remaining space
     
     def _populate_items(self):
         """Populate items dropdown from reference data."""
@@ -489,7 +734,8 @@ class ROITrackerTab(QWidget):
             return
         
         inv = self.investments[row]
-        dialog = AddRevenueDialog(self, inv.get("name", "Unknown"))
+        game_date = self._get_current_game_date()
+        dialog = AddRevenueDialog(self, inv.get("name", "Unknown"), default_date=game_date)
         
         if dialog.exec() == QDialog.DialogCode.Accepted:
             revenue = dialog.get_revenue()
@@ -498,6 +744,17 @@ class ROITrackerTab(QWidget):
                 self._refresh_table()
                 self._update_summary()
                 self.data_changed.emit()
+    
+    def _get_current_game_date(self):
+        """Get the current in-game date from Settings."""
+        try:
+            if self.main_window and hasattr(self.main_window, 'settings_tab'):
+                settings = self.main_window.settings_tab
+                if hasattr(settings, 'current_game_date'):
+                    return settings.current_game_date.date()
+        except Exception:
+            pass
+        return QDate(2021, 4, 22)
     
     def _edit_investment(self, row):
         """Edit an investment."""
@@ -607,10 +864,11 @@ class ROITrackerTab(QWidget):
 class AddRevenueDialog(QDialog):
     """Dialog to add revenue to an investment."""
     
-    def __init__(self, parent, item_name):
+    def __init__(self, parent, item_name, default_date=None):
         super().__init__(parent)
         self.setWindowTitle(f"Add Revenue - {item_name}")
         self.setMinimumWidth(400)
+        self.default_date = default_date or QDate(2021, 4, 22)
         self._setup_ui()
     
     def _setup_ui(self):
@@ -642,7 +900,7 @@ class AddRevenueDialog(QDialog):
         form.addRow("Amount:", self.amount_spin)
         
         self.date_edit = QDateEdit()
-        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit.setDate(self.default_date)
         self.date_edit.setCalendarPopup(True)
         form.addRow("Date:", self.date_edit)
         
@@ -766,3 +1024,100 @@ class EditInvestmentDialog(QDialog):
         self.investment["is_utility"] = self.utility_check.isChecked()
         
         return self.investment
+
+
+class MaintenanceDialog(QDialog):
+    """Dialog to add a maintenance record."""
+    
+    MAINTENANCE_TYPES = [
+        "Repair",
+        "Parts Replacement", 
+        "Scheduled Service",
+        "Inspection",
+        "Upgrade",
+        "Other"
+    ]
+    
+    def __init__(self, parent, default_date=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add Maintenance Record")
+        self.setMinimumWidth(400)
+        self.default_date = default_date or QDate(2021, 4, 22)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        form = QFormLayout()
+        
+        # Date
+        self.date_edit = QDateEdit()
+        self.date_edit.setDate(self.default_date)
+        self.date_edit.setCalendarPopup(True)
+        form.addRow("Date:", self.date_edit)
+        
+        # Equipment (with autocomplete from vehicles)
+        self.equipment_combo = QComboBox()
+        self.equipment_combo.setEditable(True)
+        self._populate_equipment()
+        form.addRow("Equipment:", self.equipment_combo)
+        
+        # Maintenance Type
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(self.MAINTENANCE_TYPES)
+        form.addRow("Type:", self.type_combo)
+        
+        # Cost
+        self.cost_spin = QDoubleSpinBox()
+        self.cost_spin.setRange(0, 10000000)
+        self.cost_spin.setDecimals(0)
+        self.cost_spin.setPrefix("$")
+        form.addRow("Cost:", self.cost_spin)
+        
+        # Notes
+        self.notes_edit = QLineEdit()
+        self.notes_edit.setPlaceholderText("Parts replaced, work done, etc.")
+        form.addRow("Notes:", self.notes_edit)
+        
+        layout.addLayout(form)
+        
+        # Buttons
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+    
+    def _populate_equipment(self):
+        """Populate equipment dropdown with vehicles."""
+        self.equipment_combo.addItem("-- Select Equipment --")
+        
+        try:
+            from ui.tabs.vehicles_subtab import VEHICLE_DATA
+            vehicles = sorted(set(v.get('name', '') for v in VEHICLE_DATA if v.get('name')))
+            for v in vehicles:
+                # Exclude attachments
+                if not any(v.endswith(s) for s in ['B100', 'B120', 'B140']):
+                    self.equipment_combo.addItem(v)
+        except Exception:
+            pass
+    
+    def get_record(self):
+        """Get the maintenance record data."""
+        equipment = self.equipment_combo.currentText()
+        if equipment == "-- Select Equipment --":
+            equipment = ""
+        
+        cost = self.cost_spin.value()
+        if cost <= 0:
+            return None
+        
+        return {
+            "date": self.date_edit.date().toString("yyyy-MM-dd"),
+            "equipment": equipment,
+            "type": self.type_combo.currentText(),
+            "cost": cost,
+            "notes": self.notes_edit.text().strip()
+        }
+

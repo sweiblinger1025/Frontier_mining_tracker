@@ -824,6 +824,29 @@ class MaterialMovementTab(QWidget):
     def set_ledger_tab(self, ledger_tab):
         """Set reference to the Ledger tab for balance reading."""
         self.ledger_tab = ledger_tab
+        # Update dates to use in-game date now that we have access to Settings
+        self._update_dates_to_game_date()
+    
+    def _get_current_game_date(self):
+        """Get the current in-game date from Settings."""
+        try:
+            if self.ledger_tab and hasattr(self.ledger_tab, 'main_window'):
+                main_window = self.ledger_tab.main_window
+                if main_window and hasattr(main_window, 'settings_tab'):
+                    settings = main_window.settings_tab
+                    if hasattr(settings, 'current_game_date'):
+                        return settings.current_game_date.date()
+        except Exception:
+            pass
+        return QDate(2021, 4, 22)
+    
+    def _update_dates_to_game_date(self):
+        """Update all date fields to use the in-game date."""
+        game_date = self._get_current_game_date()
+        if hasattr(self, 'hauling_date'):
+            self.hauling_date.setDate(game_date)
+        if hasattr(self, 'processing_date'):
+            self.processing_date.setDate(game_date)
     
     def _start_session(self):
         """Start a new tracking session."""

@@ -4,9 +4,10 @@ Dashboard Tab - Main overview combining data from all tabs.
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFrame, QProgressBar, QAbstractItemView, QScrollArea
+    QFrame, QProgressBar, QAbstractItemView, QScrollArea,
+    QDateEdit, QTextEdit, QSplitter
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from PyQt6.QtGui import QFont, QColor
 
 
@@ -40,6 +41,9 @@ class DashboardTab(QWidget):
         
         # === Quick Actions ===
         self._create_quick_actions(layout)
+        
+        # === Daily Journal ===
+        self._create_daily_journal(layout)
         
         # === ROI Highlights ===
         self._create_roi_highlights(layout)
@@ -235,6 +239,244 @@ class DashboardTab(QWidget):
         
         actions_layout.addStretch()
         parent_layout.addWidget(actions_group)
+    
+    def _create_daily_journal(self, parent_layout):
+        """Create the Daily Journal section."""
+        journal_group = QGroupBox("📓 Daily Journal")
+        journal_layout = QVBoxLayout(journal_group)
+        journal_layout.setSpacing(8)
+        
+        # Date selector row
+        date_row = QHBoxLayout()
+        
+        date_row.addWidget(QLabel("Date:"))
+        self.journal_date = QDateEdit()
+        self.journal_date.setCalendarPopup(True)
+        self.journal_date.setDate(self._get_current_game_date())
+        self.journal_date.dateChanged.connect(self._update_daily_journal)
+        date_row.addWidget(self.journal_date)
+        
+        self.prev_day_btn = QPushButton("◀ Prev")
+        self.prev_day_btn.setFixedWidth(60)
+        self.prev_day_btn.clicked.connect(self._prev_journal_day)
+        date_row.addWidget(self.prev_day_btn)
+        
+        self.next_day_btn = QPushButton("Next ▶")
+        self.next_day_btn.setFixedWidth(60)
+        self.next_day_btn.clicked.connect(self._next_journal_day)
+        date_row.addWidget(self.next_day_btn)
+        
+        self.today_btn = QPushButton("Today")
+        self.today_btn.setFixedWidth(50)
+        self.today_btn.clicked.connect(self._goto_today)
+        date_row.addWidget(self.today_btn)
+        
+        date_row.addStretch()
+        
+        # Daily summary labels
+        self.daily_income_label = QLabel("Income: $0")
+        self.daily_income_label.setStyleSheet("color: #008800; font-weight: bold;")
+        date_row.addWidget(self.daily_income_label)
+        
+        self.daily_expense_label = QLabel("Expenses: $0")
+        self.daily_expense_label.setStyleSheet("color: #cc0000; font-weight: bold;")
+        date_row.addWidget(self.daily_expense_label)
+        
+        self.daily_net_label = QLabel("Net: $0")
+        self.daily_net_label.setStyleSheet("font-weight: bold;")
+        date_row.addWidget(self.daily_net_label)
+        
+        journal_layout.addLayout(date_row)
+        
+        # Content area - activities table and notes side by side
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Activities table
+        activities_widget = QWidget()
+        activities_layout = QVBoxLayout(activities_widget)
+        activities_layout.setContentsMargins(0, 0, 0, 0)
+        
+        activities_label = QLabel("📋 Day's Activities")
+        activities_label.setFont(QFont("", 9, QFont.Weight.Bold))
+        activities_layout.addWidget(activities_label)
+        
+        self.activities_table = QTableWidget()
+        self.activities_table.setColumnCount(5)
+        self.activities_table.setHorizontalHeaderLabels(["Time", "Type", "Description", "Amount", "Source"])
+        self.activities_table.setAlternatingRowColors(True)
+        self.activities_table.setMaximumHeight(150)
+        self.activities_table.verticalHeader().setDefaultSectionSize(22)
+        
+        header = self.activities_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        
+        activities_layout.addWidget(self.activities_table)
+        content_splitter.addWidget(activities_widget)
+        
+        # Notes section
+        notes_widget = QWidget()
+        notes_layout = QVBoxLayout(notes_widget)
+        notes_layout.setContentsMargins(0, 0, 0, 0)
+        
+        notes_header = QHBoxLayout()
+        notes_label = QLabel("📝 Notes")
+        notes_label.setFont(QFont("", 9, QFont.Weight.Bold))
+        notes_header.addWidget(notes_label)
+        
+        self.save_notes_btn = QPushButton("💾 Save")
+        self.save_notes_btn.setFixedWidth(50)
+        self.save_notes_btn.clicked.connect(self._save_journal_notes)
+        notes_header.addWidget(self.save_notes_btn)
+        notes_layout.addLayout(notes_header)
+        
+        self.journal_notes = QTextEdit()
+        self.journal_notes.setPlaceholderText("Add notes for this day...")
+        self.journal_notes.setMaximumHeight(150)
+        notes_layout.addWidget(self.journal_notes)
+        
+        content_splitter.addWidget(notes_widget)
+        content_splitter.setSizes([400, 200])
+        
+        journal_layout.addWidget(content_splitter)
+        
+        parent_layout.addWidget(journal_group)
+        
+        # Storage for notes
+        self.daily_notes = {}  # {date_str: notes}
+        
+        # Initial update
+        self._update_daily_journal()
+    
+    def _get_current_game_date(self):
+        """Get current in-game date from Settings."""
+        try:
+            if hasattr(self.main_window, 'settings_tab'):
+                settings = self.main_window.settings_tab
+                if hasattr(settings, 'current_game_date'):
+                    return settings.current_game_date.date()
+        except Exception:
+            pass
+        return QDate(2021, 4, 23)
+    
+    def _prev_journal_day(self):
+        """Go to previous day."""
+        self.journal_date.setDate(self.journal_date.date().addDays(-1))
+    
+    def _next_journal_day(self):
+        """Go to next day."""
+        self.journal_date.setDate(self.journal_date.date().addDays(1))
+    
+    def _goto_today(self):
+        """Go to current game date."""
+        self.journal_date.setDate(self._get_current_game_date())
+    
+    def _save_journal_notes(self):
+        """Save notes for the current date."""
+        date_str = self.journal_date.date().toString("yyyy-MM-dd")
+        self.daily_notes[date_str] = self.journal_notes.toPlainText()
+    
+    def _update_daily_journal(self):
+        """Update the daily journal for the selected date."""
+        selected_date = self.journal_date.date()
+        date_str = selected_date.toString("yyyy-MM-dd")
+        
+        # Load notes for this date
+        self.journal_notes.setPlainText(self.daily_notes.get(date_str, ""))
+        
+        # Collect all activities for this date
+        activities = []
+        total_income = 0
+        total_expense = 0
+        
+        # Get ledger transactions
+        try:
+            if hasattr(self.main_window, 'ledger_tab'):
+                ledger = self.main_window.ledger_tab
+                for txn in ledger.transactions:
+                    txn_date = str(txn.get('date', ''))[:10]
+                    if txn_date == date_str and txn.get('type') != 'Opening':
+                        txn_type = txn.get('type', '')
+                        item = txn.get('item', '')
+                        qty = txn.get('quantity', 0)
+                        total = txn.get('total', 0)
+                        
+                        # Calculate income/expense
+                        if txn_type == 'Sale':
+                            total_income += abs(total)
+                            amount_str = f"+${abs(total):,.0f}"
+                            amount_color = "#008800"
+                        elif txn_type in ['Purchase', 'Fuel']:
+                            total_expense += abs(total)
+                            amount_str = f"-${abs(total):,.0f}"
+                            amount_color = "#cc0000"
+                        else:
+                            amount_str = f"${total:,.0f}"
+                            amount_color = "#000000"
+                        
+                        activities.append({
+                            'time': '—',
+                            'type': txn_type,
+                            'description': f"{qty}× {item}",
+                            'amount': amount_str,
+                            'amount_color': amount_color,
+                            'source': 'Ledger'
+                        })
+        except Exception:
+            pass
+        
+        # Get production log entries
+        try:
+            if hasattr(self.main_window, 'production_tab'):
+                prod = self.main_window.production_tab
+                for entry in prod.production_log:
+                    entry_date = entry.get('datetime')
+                    if entry_date:
+                        entry_date_str = entry_date.strftime("%Y-%m-%d")
+                        if entry_date_str == date_str:
+                            output = entry.get('output', '')
+                            qty = entry.get('output_qty', 0)
+                            value = entry.get('value_created', 0)
+                            time_str = entry_date.strftime("%H:%M")
+                            
+                            activities.append({
+                                'time': time_str,
+                                'type': 'Production',
+                                'description': f"{qty}× {output}",
+                                'amount': f"+${value:,.0f}" if value >= 0 else f"-${abs(value):,.0f}",
+                                'amount_color': "#008800" if value >= 0 else "#cc0000",
+                                'source': 'Production'
+                            })
+        except Exception:
+            pass
+        
+        # Update summary labels
+        self.daily_income_label.setText(f"Income: ${total_income:,.0f}")
+        self.daily_expense_label.setText(f"Expenses: ${total_expense:,.0f}")
+        
+        net = total_income - total_expense
+        if net >= 0:
+            self.daily_net_label.setText(f"Net: +${net:,.0f}")
+            self.daily_net_label.setStyleSheet("font-weight: bold; color: #008800;")
+        else:
+            self.daily_net_label.setText(f"Net: -${abs(net):,.0f}")
+            self.daily_net_label.setStyleSheet("font-weight: bold; color: #cc0000;")
+        
+        # Populate activities table
+        self.activities_table.setRowCount(len(activities))
+        for row, activity in enumerate(activities):
+            self.activities_table.setItem(row, 0, QTableWidgetItem(activity['time']))
+            self.activities_table.setItem(row, 1, QTableWidgetItem(activity['type']))
+            self.activities_table.setItem(row, 2, QTableWidgetItem(activity['description']))
+            
+            amount_item = QTableWidgetItem(activity['amount'])
+            amount_item.setForeground(QColor(activity['amount_color']))
+            self.activities_table.setItem(row, 3, amount_item)
+            
+            self.activities_table.setItem(row, 4, QTableWidgetItem(activity['source']))
     
     def _create_roi_highlights(self, parent_layout):
         """Create ROI performance highlights section."""

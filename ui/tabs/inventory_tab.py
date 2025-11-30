@@ -142,9 +142,9 @@ class InventoryTab(QWidget):
             "Silver Bar": 123, "Steel Bar": 60,
             # Materials - Concrete
             "Cement": 11,
-            # Materials - Sub Parts
-            "Electronic Parts": 140, "Empty Barrel": 35, "Plastics": 56,
-            "Rubber": 63, "Wearplate": 105,
+            # Materials - Sub Parts (sell prices from Reference Data)
+            "Electronic Parts": 350, "Empty Barrel": 46, "Plastics": 98,
+            "Rubber": 95, "Wearplate": 224,
             # Materials - Fuel
             "Fuel": 70,
             # Materials - Metals
@@ -165,11 +165,12 @@ class InventoryTab(QWidget):
             "Small Gearbox": 350, "Stepper Motor": 350,
         }
     
-    def get_item_sell_price(self, item_name):
+    def get_item_sell_price(self, item_name, category=None):
         """Get sell price for an item from Reference Data, fallback to hardcoded.
         
         Args:
             item_name: Name of the item
+            category: Optional category to match (for items with same name in different categories)
             
         Returns:
             Sell price as float, or 0 if not found
@@ -178,6 +179,12 @@ class InventoryTab(QWidget):
         try:
             if self.main_window and hasattr(self.main_window, 'reference_tab'):
                 ref = self.main_window.reference_tab
+                # If category provided, use more specific lookup
+                if category:
+                    item = ref.get_item_by_name_and_category(item_name, category)
+                    if item:
+                        return item.sell_price
+                # Fallback to name-only lookup
                 item = ref.get_item_by_name(item_name)
                 if item:
                     return item.sell_price
@@ -230,6 +237,14 @@ class InventoryTab(QWidget):
         btn_layout.addWidget(self.delete_btn)
         
         btn_layout.addStretch()
+        
+        # Sync from Ledger button
+        self.sync_btn = QPushButton("🔄 Sync from Ledger")
+        self.sync_btn.setToolTip("Scan Ledger transactions and update inventory quantities")
+        self.sync_btn.clicked.connect(self._on_sync_from_ledger)
+        self.sync_btn.setStyleSheet("background-color: #e3f2fd;")
+        btn_layout.addWidget(self.sync_btn)
+        
         table_layout.addLayout(btn_layout)
         
         splitter.addWidget(table_widget)
@@ -524,7 +539,7 @@ class InventoryTab(QWidget):
         
         for i, item in enumerate(default_items):
             item['id'] = i + 1
-            item['unit_price'] = self.get_item_sell_price(item['name'])
+            item['unit_price'] = self.get_item_sell_price(item['name'], item.get('category'))
         
         self.inventory_items = default_items
     
@@ -881,6 +896,85 @@ class InventoryTab(QWidget):
             self._update_oil_tracker()
             QMessageBox.information(self, "Reset", "Oil lifetime counter has been reset.")
     
+    def _on_sync_from_ledger(self):
+        """Sync inventory from Ledger transactions."""
+        if not self.main_window or not hasattr(self.main_window, 'ledger_tab'):
+            QMessageBox.warning(self, "Sync Error", "Ledger tab not available.")
+            return
+        
+        ledger = self.main_window.ledger_tab
+        
+        # Scan all transactions and calculate net quantities
+        changes = {}  # {(item_name, category): quantity_change}
+        
+        for txn in ledger.transactions:
+            txn_type = txn.get('type', '')
+            item_name = txn.get('item', '')
+            category = txn.get('category', '')
+            quantity = txn.get('quantity', 0)
+            
+            if txn_type == 'Opening' or not item_name or not quantity:
+                continue
+            
+            key = (item_name, category)
+            
+            if txn_type == 'Purchase':
+                # Purchases add to inventory
+                changes[key] = changes.get(key, 0) + quantity
+            elif txn_type == 'Sale':
+                # Sales subtract from inventory
+                changes[key] = changes.get(key, 0) - quantity
+            # Fuel and Transfer don't affect item inventory
+        
+        if not changes:
+            QMessageBox.information(self, "Sync", "No Purchase or Sale transactions found in Ledger.")
+            return
+        
+        # Show confirmation dialog
+        dialog = SyncFromLedgerDialog(self, changes, self.inventory_items)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected_changes = dialog.get_selected_changes()
+            
+            if not selected_changes:
+                return
+            
+            # Apply selected changes
+            applied_count = 0
+            for (item_name, category), change in selected_changes.items():
+                if change == 0:
+                    continue
+                
+                # Find existing item
+                found = False
+                for item in self.inventory_items:
+                    if item['name'] == item_name and item.get('category', '') == category:
+                        item['quantity'] = max(0, item['quantity'] + change)
+                        found = True
+                        applied_count += 1
+                        break
+                
+                # If not found and change is positive (net purchases), add new item
+                if not found and change > 0:
+                    new_item = {
+                        'id': len(self.inventory_items) + 1,
+                        'name': item_name,
+                        'category': category,
+                        'location': 'Unknown',
+                        'quantity': change,
+                        'unit_price': self.get_item_sell_price(item_name, category),
+                    }
+                    self.inventory_items.append(new_item)
+                    applied_count += 1
+            
+            self._apply_filters()
+            self._update_summary()
+            self._update_oil_tracker()
+            
+            QMessageBox.information(
+                self, "Sync Complete",
+                f"Successfully updated {applied_count} inventory items from Ledger."
+            )
+    
     # === Public API Methods for other tabs ===
     
     def adjust_item_quantity(self, item_name: str, quantity_change: int, track_oil: bool = True) -> bool:
@@ -1158,3 +1252,168 @@ class AdjustQuantityDialog(QDialog):
             return max(0, self.current_qty - amount)
         else:  # Set exact
             return amount
+
+
+class SyncFromLedgerDialog(QDialog):
+    """Dialog for syncing inventory from Ledger transactions."""
+    
+    def __init__(self, parent, changes: dict, inventory_items: list):
+        super().__init__(parent)
+        self.changes = changes  # {(item_name, category): net_change}
+        self.inventory_items = inventory_items
+        self.checkboxes = {}  # {(item_name, category): QCheckBox}
+        
+        self.setWindowTitle("Sync from Ledger")
+        self.setMinimumWidth(700)
+        self.setMinimumHeight(500)
+        
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # Header
+        header = QLabel(
+            "<b>Review Ledger Transactions</b><br>"
+            "Select which changes to apply to inventory. "
+            "Positive numbers = net purchases (will ADD to inventory). "
+            "Negative numbers = net sales (will SUBTRACT from inventory)."
+        )
+        header.setWordWrap(True)
+        layout.addWidget(header)
+        
+        # Summary
+        total_purchases = sum(v for v in self.changes.values() if v > 0)
+        total_sales = sum(abs(v) for v in self.changes.values() if v < 0)
+        summary = QLabel(
+            f"Found {len(self.changes)} items | "
+            f"Net Purchases: +{total_purchases:,} units | "
+            f"Net Sales: -{total_sales:,} units"
+        )
+        summary.setStyleSheet("color: #666; margin: 5px 0;")
+        layout.addWidget(summary)
+        
+        # Table
+        self.table = QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels([
+            "Apply", "Item Name", "Category", "Current Qty", "Change", "New Qty"
+        ])
+        
+        self.table.setRowCount(len(self.changes))
+        self.table.setAlternatingRowColors(True)
+        
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        
+        for row, ((item_name, category), change) in enumerate(sorted(self.changes.items())):
+            # Checkbox
+            checkbox = QCheckBox()
+            checkbox.setChecked(True)
+            self.checkboxes[(item_name, category)] = checkbox
+            
+            checkbox_widget = QWidget()
+            checkbox_layout = QHBoxLayout(checkbox_widget)
+            checkbox_layout.addWidget(checkbox)
+            checkbox_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            self.table.setCellWidget(row, 0, checkbox_widget)
+            
+            # Item Name
+            self.table.setItem(row, 1, QTableWidgetItem(item_name))
+            
+            # Category
+            self.table.setItem(row, 2, QTableWidgetItem(category))
+            
+            # Current Qty
+            current_qty = 0
+            for item in self.inventory_items:
+                if item['name'] == item_name and item.get('category', '') == category:
+                    current_qty = item['quantity']
+                    break
+            current_item = QTableWidgetItem(f"{current_qty:,}")
+            current_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.table.setItem(row, 3, current_item)
+            
+            # Change
+            change_item = QTableWidgetItem(f"{change:+,}" if change != 0 else "0")
+            change_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            if change > 0:
+                change_item.setForeground(QColor("#2e7d32"))  # Green for additions
+            elif change < 0:
+                change_item.setForeground(QColor("#c62828"))  # Red for subtractions
+            self.table.setItem(row, 4, change_item)
+            
+            # New Qty
+            new_qty = max(0, current_qty + change)
+            new_item = QTableWidgetItem(f"{new_qty:,}")
+            new_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            if new_qty == 0:
+                new_item.setForeground(QColor("#f57c00"))  # Orange for zero
+            self.table.setItem(row, 5, new_item)
+        
+        layout.addWidget(self.table)
+        
+        # Select All / None buttons
+        select_layout = QHBoxLayout()
+        
+        select_all_btn = QPushButton("Select All")
+        select_all_btn.clicked.connect(self._select_all)
+        select_layout.addWidget(select_all_btn)
+        
+        select_none_btn = QPushButton("Select None")
+        select_none_btn.clicked.connect(self._select_none)
+        select_layout.addWidget(select_none_btn)
+        
+        select_purchases_btn = QPushButton("Select Purchases Only")
+        select_purchases_btn.clicked.connect(self._select_purchases)
+        select_layout.addWidget(select_purchases_btn)
+        
+        select_sales_btn = QPushButton("Select Sales Only")
+        select_sales_btn.clicked.connect(self._select_sales)
+        select_layout.addWidget(select_sales_btn)
+        
+        select_layout.addStretch()
+        layout.addLayout(select_layout)
+        
+        # Buttons
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Apply Selected")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+    
+    def _select_all(self):
+        for checkbox in self.checkboxes.values():
+            checkbox.setChecked(True)
+    
+    def _select_none(self):
+        for checkbox in self.checkboxes.values():
+            checkbox.setChecked(False)
+    
+    def _select_purchases(self):
+        """Select only items with positive changes (net purchases)."""
+        for (item_name, category), checkbox in self.checkboxes.items():
+            change = self.changes.get((item_name, category), 0)
+            checkbox.setChecked(change > 0)
+    
+    def _select_sales(self):
+        """Select only items with negative changes (net sales)."""
+        for (item_name, category), checkbox in self.checkboxes.items():
+            change = self.changes.get((item_name, category), 0)
+            checkbox.setChecked(change < 0)
+    
+    def get_selected_changes(self) -> dict:
+        """Return only the changes that were selected."""
+        return {
+            key: self.changes[key]
+            for key, checkbox in self.checkboxes.items()
+            if checkbox.isChecked()
+        }

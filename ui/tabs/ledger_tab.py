@@ -72,14 +72,19 @@ class LedgerTab(QWidget):
         # Transaction data
         self.transactions: list[dict] = []
         
+        # Undo/Redo stacks
+        self.undo_stack: list[dict] = []  # Stack of {action, data, index}
+        self.redo_stack: list[dict] = []
+        self.max_undo_history = 50  # Limit undo history
+
         # Opening balance
         self.opening_personal = 100000.0
         self.opening_company = 0.0
-        
+
         self._setup_ui()
         self._load_reference_data()
         self._load_transactions()
-    
+
     def get_current_game_date(self):
         """Get the current in-game date from Settings tab."""
         try:
@@ -91,30 +96,30 @@ class LedgerTab(QWidget):
             pass
         # Fallback to default game start date
         return QDate(2021, 4, 22)
-    
+
     def _setup_ui(self):
         """Setup the UI components."""
         layout = QVBoxLayout(self)
-        
+
         # Top section: Opening Balance
         layout.addWidget(self._create_opening_balance_group())
-        
+
         # Middle section: Action buttons
         layout.addLayout(self._create_button_bar())
-        
+
         # Main section: Transaction table
         self.table = self._create_table()
         layout.addWidget(self.table)
-        
+
         # Bottom section: Transaction count
         self.status_label = QLabel("Transactions: 0")
         layout.addWidget(self.status_label)
-    
+
     def _create_opening_balance_group(self) -> QGroupBox:
         """Create the opening balance controls."""
         group = QGroupBox("💰 Opening Balance (Row 1)")
         layout = QHBoxLayout(group)
-        
+
         # Personal Balance (whole numbers only)
         layout.addWidget(QLabel("Personal Balance:"))
         self.personal_balance_spin = QDoubleSpinBox()
@@ -125,9 +130,9 @@ class LedgerTab(QWidget):
         self.personal_balance_spin.setSingleStep(1000)
         self.personal_balance_spin.valueChanged.connect(self._on_opening_balance_changed)
         layout.addWidget(self.personal_balance_spin)
-        
+
         layout.addSpacing(30)
-        
+
         # Company Balance (whole numbers only)
         layout.addWidget(QLabel("Company Balance:"))
         self.company_balance_spin = QDoubleSpinBox()
@@ -138,60 +143,76 @@ class LedgerTab(QWidget):
         self.company_balance_spin.setSingleStep(1000)
         self.company_balance_spin.valueChanged.connect(self._on_opening_balance_changed)
         layout.addWidget(self.company_balance_spin)
-        
+
         layout.addStretch()
-        
+
         # Info label
         info_label = QLabel("Hardcore: $100,000 | Standard: Any amount | Creative: N/A")
         info_label.setStyleSheet("color: #666; font-style: italic;")
         layout.addWidget(info_label)
-        
+
         return group
-    
+
     def _create_button_bar(self) -> QHBoxLayout:
         """Create the action button bar."""
         layout = QHBoxLayout()
-        
+
         # Add Transaction button
         self.add_btn = QPushButton("➕ Add Transaction")
         self.add_btn.clicked.connect(self._on_add_transaction)
         layout.addWidget(self.add_btn)
-        
+
         # Edit Transaction button
         self.edit_btn = QPushButton("✏️ Edit Selected")
         self.edit_btn.clicked.connect(self._on_edit_transaction)
         layout.addWidget(self.edit_btn)
-        
+
         # Delete Transaction button
         self.delete_btn = QPushButton("🗑️ Delete Selected")
         self.delete_btn.clicked.connect(self._on_delete_transaction)
         layout.addWidget(self.delete_btn)
-        
+
+        layout.addSpacing(10)
+
+        # Undo button
+        self.undo_btn = QPushButton("↩️ Undo")
+        self.undo_btn.setToolTip("Undo last action (Ctrl+Z)")
+        self.undo_btn.clicked.connect(self.undo)
+        self.undo_btn.setEnabled(False)
+        layout.addWidget(self.undo_btn)
+
+        # Redo button
+        self.redo_btn = QPushButton("↪️ Redo")
+        self.redo_btn.setToolTip("Redo last undone action (Ctrl+Y)")
+        self.redo_btn.clicked.connect(self.redo)
+        self.redo_btn.setEnabled(False)
+        layout.addWidget(self.redo_btn)
+
         layout.addSpacing(20)
-        
+
         # Import button
         self.import_btn = QPushButton("📥 Import")
         self.import_btn.clicked.connect(self._on_import)
         layout.addWidget(self.import_btn)
-        
+
         # Export button
         self.export_btn = QPushButton("📤 Export")
         self.export_btn.clicked.connect(self._on_export)
         layout.addWidget(self.export_btn)
-        
+
         layout.addStretch()
-        
+
         # Recalculate button
         self.recalc_btn = QPushButton("🔄 Recalculate Balances")
         self.recalc_btn.clicked.connect(self._recalculate_all_balances)
         layout.addWidget(self.recalc_btn)
-        
+
         return layout
-    
+
     def _create_table(self) -> QTableWidget:
         """Create the transaction table."""
         table = QTableWidget()
-        
+
         # Define columns (matching Excel structure)
         self.columns = [
             "Date",
@@ -213,50 +234,75 @@ class LedgerTab(QWidget):
             "Personal Balance",
             "Notes",
         ]
-        
+
         table.setColumnCount(len(self.columns))
         table.setHorizontalHeaderLabels(self.columns)
-        
+
         # Configure table
         table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         table.setSortingEnabled(False)  # Keep chronological order
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)  # Edit via dialog
-        
+
         # Double-click to edit
         table.doubleClicked.connect(self._on_edit_transaction)
-        
+
         # Configure header
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Item column stretches
-        
+
         return table
-    
+
     def _load_reference_data(self):
-        """Load items, categories, and locations for autocomplete."""
+        """Load items, categories, locations, and vehicles for autocomplete."""
         self.all_items = self.importer.get_all_items()
         self.item_names = list(set(item.name for item in self.all_items))
         self.item_names.sort()
-        
+
         self.categories = self.db.get_category_names()
         self.locations = self.db.get_location_names()
-    
+
+        # Load vehicle names from Reference Data
+        self.vehicle_names = self._get_vehicle_names()
+
+    def _get_vehicle_names(self) -> list[str]:
+        """Get vehicle names from Reference Data, excluding attachments."""
+        vehicles = []
+
+        # Attachment suffixes to exclude
+        attachment_suffixes = ['B100', 'B120', 'B140']
+
+        try:
+            # Import VEHICLE_DATA directly from the module
+            from ui.tabs.vehicles_subtab import VEHICLE_DATA
+            for v in VEHICLE_DATA:
+                name = v.get('name', '')
+                if name:
+                    # Exclude attachments (B100, B120, B140)
+                    is_attachment = any(name.endswith(suffix) for suffix in attachment_suffixes)
+                    if not is_attachment and name not in vehicles:
+                        vehicles.append(name)
+        except Exception as e:
+            print(f"Error loading vehicles: {e}")
+
+        return sorted(vehicles)
+
     def _load_transactions(self):
         """Load transactions from database."""
         self.transactions = []
-        
+
         with self.db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT * FROM transactions ORDER BY id
             """)
             rows = cursor.fetchall()
-            
+
             for row in rows:
                 self.transactions.append(dict(row))
-        
+
         # Load opening balance from first transaction or game settings
         if self.transactions and self.transactions[0].get('type') == 'Opening':
             self.opening_personal = self.transactions[0].get('personal_balance', 100000)
@@ -266,7 +312,7 @@ class LedgerTab(QWidget):
             settings = self.db.get_game_settings()
             self.opening_personal = settings.starting_capital
             self.opening_company = 0
-        
+
         # Update spinboxes
         self.personal_balance_spin.blockSignals(True)
         self.company_balance_spin.blockSignals(True)
@@ -274,18 +320,18 @@ class LedgerTab(QWidget):
         self.company_balance_spin.setValue(self.opening_company)
         self.personal_balance_spin.blockSignals(False)
         self.company_balance_spin.blockSignals(False)
-        
+
         self._populate_table()
-    
+
     def _populate_table(self):
         """Populate the table with transactions."""
         # Add opening balance as row 0, then all transactions
         total_rows = 1 + len([t for t in self.transactions if t.get('type') != 'Opening'])
         self.table.setRowCount(total_rows)
-        
+
         # Row 0: Opening Balance
         self._populate_opening_row()
-        
+
         # Rows 1+: Transactions
         row = 1
         for txn in self.transactions:
@@ -293,13 +339,13 @@ class LedgerTab(QWidget):
                 continue  # Skip opening balance in transaction list
             self._populate_transaction_row(row, txn)
             row += 1
-        
+
         self._update_status()
-    
+
     def _populate_opening_row(self):
         """Populate the opening balance row (row 0)."""
         row = 0
-        
+
         # Get game start date from Settings tab first, then fall back to database
         start_date = ""
         try:
@@ -310,12 +356,12 @@ class LedgerTab(QWidget):
                     start_date = qdate.toString("yyyy-MM-dd")
         except Exception:
             pass
-        
+
         # Fallback to database if Settings tab not available
         if not start_date:
             settings = self.db.get_game_settings()
             start_date = settings.game_start_date.strftime("%Y-%m-%d") if settings.game_start_date else ""
-        
+
         data = [
             start_date,  # Date
             "Opening",   # Type
@@ -336,20 +382,20 @@ class LedgerTab(QWidget):
             f"${self.opening_personal:,.0f}",  # Personal Balance (whole number)
             "",  # Notes
         ]
-        
+
         for col, value in enumerate(data):
             item = QTableWidgetItem(str(value))
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            
+
             # Style opening row with gray background (matches row color system)
             item.setBackground(QColor("#f5f5f5"))
-            
+
             # Right-align currency columns
             if col in [4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16]:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            
+
             self.table.setItem(row, col, item)
-    
+
     def _populate_transaction_row(self, row: int, txn: dict):
         """Populate a transaction row."""
         # Format currency values - whole numbers for totals/balances
@@ -357,7 +403,7 @@ class LedgerTab(QWidget):
             if val is None or val == 0:
                 return ""
             return f"${val:,.0f}"
-        
+
         # Unit price can have decimals (for bulk pricing like $66.50)
         def fmt_unit_price(val):
             if val is None or val == 0:
@@ -366,12 +412,12 @@ class LedgerTab(QWidget):
             if val == int(val):
                 return f"${val:,.0f}"
             return f"${val:,.2f}"
-        
+
         def fmt_qty(val):
             if val is None:
                 return ""
             return str(int(val)) if val == int(val) else str(val)
-        
+
         data = [
             txn.get('date', ''),
             txn.get('type', ''),
@@ -392,7 +438,7 @@ class LedgerTab(QWidget):
             fmt_currency(txn.get('personal_balance')),
             txn.get('notes', ''),
         ]
-        
+
         # Row background colors based on transaction type
         txn_type = txn.get('type', '')
         row_colors = {
@@ -403,23 +449,23 @@ class LedgerTab(QWidget):
             'Opening': QColor("#f5f5f5"),    # Light gray
         }
         row_bg = row_colors.get(txn_type, None)
-        
+
         for col, value in enumerate(data):
             item = QTableWidgetItem(str(value) if value else "")
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            
+
             # Store transaction ID for reference
             if col == 0:
                 item.setData(Qt.ItemDataRole.UserRole, txn.get('id'))
-            
+
             # Apply row background color based on transaction type
             if row_bg:
                 item.setBackground(row_bg)
-            
+
             # Right-align numeric columns
             if col in [4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16]:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            
+
             # Color income green, expense red (text color)
             if col == 9 and txn.get('personal_income', 0) > 0:  # Personal Income
                 item.setForeground(QColor("#2e7d32"))
@@ -429,42 +475,42 @@ class LedgerTab(QWidget):
                 item.setForeground(QColor("#c62828"))
             elif col == 12 and txn.get('company_expense', 0) < 0:  # Company Expense
                 item.setForeground(QColor("#c62828"))
-            
+
             self.table.setItem(row, col, item)
-    
+
     def _update_status(self):
         """Update the status label."""
         count = len([t for t in self.transactions if t.get('type') != 'Opening'])
         self.status_label.setText(f"Transactions: {count}")
-    
+
     def _on_opening_balance_changed(self):
         """Handle opening balance changes."""
         self.opening_personal = self.personal_balance_spin.value()
         self.opening_company = self.company_balance_spin.value()
-        
+
         # Update the opening row in table
         self._populate_opening_row()
-        
+
         # Recalculate all running balances
         self._recalculate_all_balances()
-        
+
         # Save to database (as first transaction or update game settings)
         self._save_opening_balance()
-    
+
     def _save_opening_balance(self):
         """Save opening balance to database."""
         settings = self.db.get_game_settings()
         settings.starting_capital = self.opening_personal
         self.db.save_game_settings(settings)
-        
+
         # Also save/update Opening transaction
         with self.db._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             # Check if opening transaction exists
             cursor.execute("SELECT id FROM transactions WHERE type = 'Opening' LIMIT 1")
             existing = cursor.fetchone()
-            
+
             if existing:
                 cursor.execute("""
                     UPDATE transactions 
@@ -481,27 +527,31 @@ class LedgerTab(QWidget):
                     self.opening_personal,
                     self.opening_company
                 ))
-    
+
     def _on_add_transaction(self):
         """Show dialog to add a new transaction."""
+        # Refresh vehicle list in case Reference Data was loaded
+        self.vehicle_names = self._get_vehicle_names()
+
         dialog = TransactionDialog(
             self,
             items=self.all_items,
             item_names=self.item_names,
             categories=self.categories,
             locations=self.locations,
+            vehicles=self.vehicle_names,
             default_date=self.get_current_game_date(),
         )
-        
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             txn_data = dialog.get_transaction_data()
             self._add_transaction(txn_data)
-    
+
     def _add_transaction(self, txn_data: dict):
         """Add a new transaction to the database."""
         # Calculate income/expense based on type, account, and category
         txn_data = self._calculate_income_expense(txn_data)
-        
+
         with self.db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -529,25 +579,29 @@ class LedgerTab(QWidget):
                 txn_data.get('notes'),
             ))
             txn_data['id'] = cursor.lastrowid
-        
+
         self.transactions.append(txn_data)
+
+        # Push to undo stack
+        self._push_undo('add', txn_data.copy(), len(self.transactions) - 1)
+
         self._recalculate_all_balances()
         self._populate_table()
         self.data_changed.emit()
-    
+
     def _calculate_income_expense(self, txn_data: dict) -> dict:
         """Calculate income/expense fields based on transaction type and account."""
         txn_type = txn_data.get('type')
         account = txn_data.get('account')
         category = txn_data.get('category', '')
         total = txn_data.get('total', 0)
-        
+
         # Initialize
         txn_data['personal_income'] = 0
         txn_data['company_income'] = 0
         txn_data['personal_expense'] = 0
         txn_data['company_expense'] = 0
-        
+
         if txn_type == 'Sale':
             if account == 'Personal':
                 # Check if this triggers the split (Resources - Ore or Fluids)
@@ -561,130 +615,131 @@ class LedgerTab(QWidget):
             else:  # Company account
                 # 100% Company
                 txn_data['company_income'] = total
-        
+
         elif txn_type == 'Purchase':
             if account == 'Personal':
                 txn_data['personal_expense'] = -total  # Negative for expense
             else:  # Company account
                 txn_data['company_expense'] = -total
-        
+
         elif txn_type == 'Fuel':
             # Fuel follows same logic as Purchase - depends on account
             if account == 'Personal':
                 txn_data['personal_expense'] = -total
             else:  # Company account
                 txn_data['company_expense'] = -total
-        
+
         elif txn_type == 'Transfer':
             # Transfer between accounts - handled specially
             # Positive = receiving, Negative = sending
             pass  # Will need more info about transfer direction
-        
+
         return txn_data
-    
+
     def _recalculate_all_balances(self):
         """Recalculate running balances for all transactions."""
         personal_balance = self.opening_personal
         company_balance = self.opening_company
-        
+
         with self.db._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             for txn in self.transactions:
                 if txn.get('type') == 'Opening':
                     continue
-                
+
                 # Add income, subtract expenses
                 personal_balance += txn.get('personal_income', 0)
                 personal_balance += txn.get('personal_expense', 0)  # Already negative
                 company_balance += txn.get('company_income', 0)
                 company_balance += txn.get('company_expense', 0)  # Already negative
-                
+
                 # Update transaction
                 txn['personal_balance'] = personal_balance
                 txn['company_balance'] = company_balance
-                
+
                 # Update in database
                 cursor.execute("""
                     UPDATE transactions 
                     SET personal_balance = ?, company_balance = ?
                     WHERE id = ?
                 """, (personal_balance, company_balance, txn.get('id')))
-        
+
         self._populate_table()
-    
+
     def get_current_balances(self) -> dict:
         """Get the current personal and company balances.
-        
+
         Returns dict with 'personal', 'company', and 'total' keys.
         Used by Material Movement tab to auto-fill starting balance.
         """
         personal_balance = self.opening_personal
         company_balance = self.opening_company
-        
+
         for txn in self.transactions:
             if txn.get('type') == 'Opening':
                 continue
-            
+
             personal_balance += txn.get('personal_income', 0)
             personal_balance += txn.get('personal_expense', 0)
             company_balance += txn.get('company_income', 0)
             company_balance += txn.get('company_expense', 0)
-        
+
         return {
             'personal': personal_balance,
             'company': company_balance,
             'total': personal_balance + company_balance,
         }
-    
+
     def _on_edit_transaction(self):
         """Edit the selected transaction."""
         selected = self.table.selectedItems()
         if not selected:
             QMessageBox.information(self, "Edit", "Please select a transaction to edit.")
             return
-        
+
         row = selected[0].row()
-        
+
         # Can't edit opening balance row via this method
         if row == 0:
             QMessageBox.information(
-                self, "Edit", 
+                self, "Edit",
                 "Use the Opening Balance fields above to edit the starting balances."
             )
             return
-        
+
         # Get transaction ID from row
         txn_id = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-        
+
         # Find transaction
         txn = None
         for t in self.transactions:
             if t.get('id') == txn_id:
                 txn = t
                 break
-        
+
         if not txn:
             return
-        
+
         dialog = TransactionDialog(
             self,
             items=self.all_items,
             item_names=self.item_names,
             categories=self.categories,
             locations=self.locations,
+            vehicles=self.vehicle_names,
             existing_data=txn,
         )
-        
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             txn_data = dialog.get_transaction_data()
             txn_data['id'] = txn_id
             self._update_transaction(txn_data)
-    
+
     def _update_transaction(self, txn_data: dict):
         """Update an existing transaction."""
         txn_data = self._calculate_income_expense(txn_data)
-        
+
         with self.db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -714,54 +769,269 @@ class LedgerTab(QWidget):
                 txn_data.get('notes'),
                 txn_data.get('id'),
             ))
-        
+
         # Update in memory
         for i, t in enumerate(self.transactions):
             if t.get('id') == txn_data.get('id'):
                 self.transactions[i] = txn_data
                 break
-        
+
         self._recalculate_all_balances()
         self.data_changed.emit()
-    
+
     def _on_delete_transaction(self):
         """Delete the selected transaction."""
         selected = self.table.selectedItems()
         if not selected:
             QMessageBox.information(self, "Delete", "Please select a transaction to delete.")
             return
-        
+
         row = selected[0].row()
-        
+
         # Can't delete opening balance
         if row == 0:
             QMessageBox.warning(self, "Delete", "Cannot delete the Opening Balance row.")
             return
-        
+
         # Confirm
         reply = QMessageBox.question(
             self, "Confirm Delete",
             "Are you sure you want to delete this transaction?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        
+
         if reply != QMessageBox.StandardButton.Yes:
             return
-        
-        # Get transaction ID
+
+        # Get transaction ID and find the transaction
         txn_id = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-        
+        txn_index = next((i for i, t in enumerate(self.transactions) if t.get('id') == txn_id), None)
+
+        if txn_index is not None:
+            # Store for undo
+            deleted_txn = self.transactions[txn_index].copy()
+            self._push_undo('delete', deleted_txn, txn_index)
+
         # Delete from database
         with self.db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
-        
+
         # Remove from memory
         self.transactions = [t for t in self.transactions if t.get('id') != txn_id]
-        
+
         self._recalculate_all_balances()
         self.data_changed.emit()
-    
+
+    def _push_undo(self, action: str, data: dict, index: int = None):
+        """Push an action to the undo stack."""
+        self.undo_stack.append({
+            'action': action,
+            'data': data,
+            'index': index
+        })
+
+        # Limit undo history
+        if len(self.undo_stack) > self.max_undo_history:
+            self.undo_stack.pop(0)
+
+        # Clear redo stack when new action is performed
+        self.redo_stack.clear()
+
+        self._update_undo_buttons()
+
+    def _update_undo_buttons(self):
+        """Update the enabled state of undo/redo buttons."""
+        self.undo_btn.setEnabled(len(self.undo_stack) > 0)
+        self.redo_btn.setEnabled(len(self.redo_stack) > 0)
+
+        # Update tooltips with action description
+        if self.undo_stack:
+            last = self.undo_stack[-1]
+            action = last['action']
+            item = last['data'].get('item', 'transaction')
+            self.undo_btn.setToolTip(f"Undo {action}: {item}")
+        else:
+            self.undo_btn.setToolTip("Nothing to undo")
+
+        if self.redo_stack:
+            last = self.redo_stack[-1]
+            action = last['action']
+            item = last['data'].get('item', 'transaction')
+            self.redo_btn.setToolTip(f"Redo {action}: {item}")
+        else:
+            self.redo_btn.setToolTip("Nothing to redo")
+
+    def undo(self):
+        """Undo the last action."""
+        if not self.undo_stack:
+            return
+
+        action_record = self.undo_stack.pop()
+        action = action_record['action']
+        data = action_record['data']
+        index = action_record['index']
+
+        if action == 'delete':
+            # Re-add the deleted transaction
+            self._restore_transaction(data, index)
+            # Push to redo stack
+            self.redo_stack.append(action_record)
+
+        elif action == 'add':
+            # Remove the added transaction
+            txn_id = data.get('id')
+            if txn_id:
+                # Delete from database
+                with self.db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
+
+                # Remove from memory
+                self.transactions = [t for t in self.transactions if t.get('id') != txn_id]
+
+                self._recalculate_all_balances()
+                # Push to redo stack
+                self.redo_stack.append(action_record)
+
+        elif action == 'edit':
+            # Restore the original version
+            txn_id = data['original'].get('id')
+            # Find and replace with original
+            for i, t in enumerate(self.transactions):
+                if t.get('id') == txn_id:
+                    # Store current for redo
+                    action_record['data'] = {
+                        'original': self.transactions[i].copy(),
+                        'modified': data['original'].copy()
+                    }
+                    self.transactions[i] = data['original'].copy()
+                    self._update_transaction_in_db(data['original'])
+                    break
+
+            self._recalculate_all_balances()
+            self.redo_stack.append(action_record)
+
+        self._update_undo_buttons()
+        self.data_changed.emit()
+
+    def redo(self):
+        """Redo the last undone action."""
+        if not self.redo_stack:
+            return
+
+        action_record = self.redo_stack.pop()
+        action = action_record['action']
+        data = action_record['data']
+        index = action_record['index']
+
+        if action == 'delete':
+            # Delete again
+            txn_id = data.get('id')
+            if txn_id:
+                with self.db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
+
+                self.transactions = [t for t in self.transactions if t.get('id') != txn_id]
+                self._recalculate_all_balances()
+                self.undo_stack.append(action_record)
+
+        elif action == 'add':
+            # Re-add the transaction
+            self._restore_transaction(data, index)
+            self.undo_stack.append(action_record)
+
+        elif action == 'edit':
+            # Re-apply the edit
+            txn_id = data['original'].get('id')
+            for i, t in enumerate(self.transactions):
+                if t.get('id') == txn_id:
+                    # Swap original and modified for undo
+                    action_record['data'] = {
+                        'original': self.transactions[i].copy(),
+                        'modified': data['original'].copy()
+                    }
+                    self.transactions[i] = data['modified'].copy()
+                    self._update_transaction_in_db(data['modified'])
+                    break
+
+            self._recalculate_all_balances()
+            self.undo_stack.append(action_record)
+
+        self._update_undo_buttons()
+        self.data_changed.emit()
+
+    def _restore_transaction(self, txn_data: dict, index: int = None):
+        """Restore a transaction to the database and memory."""
+        # Insert back into database
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO transactions 
+                (date, type, item, category, quantity, unit_price, subtotal, discount, total,
+                 personal_income, company_income, personal_expense, company_expense,
+                 account, location, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                txn_data.get('date'),
+                txn_data.get('type'),
+                txn_data.get('item'),
+                txn_data.get('category'),
+                txn_data.get('quantity'),
+                txn_data.get('unit_price'),
+                txn_data.get('subtotal'),
+                txn_data.get('discount'),
+                txn_data.get('total'),
+                txn_data.get('personal_income'),
+                txn_data.get('company_income'),
+                txn_data.get('personal_expense'),
+                txn_data.get('company_expense'),
+                txn_data.get('account'),
+                txn_data.get('location'),
+                txn_data.get('notes'),
+            ))
+            # Update the ID with new database ID
+            txn_data['id'] = cursor.lastrowid
+
+        # Add back to memory at the right position
+        if index is not None and 0 <= index <= len(self.transactions):
+            self.transactions.insert(index, txn_data)
+        else:
+            self.transactions.append(txn_data)
+
+        self._recalculate_all_balances()
+
+    def _update_transaction_in_db(self, txn_data: dict):
+        """Update a transaction in the database."""
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE transactions SET
+                    date=?, type=?, item=?, category=?, quantity=?, unit_price=?,
+                    subtotal=?, discount=?, total=?, personal_income=?, company_income=?,
+                    personal_expense=?, company_expense=?, account=?, location=?, notes=?
+                WHERE id=?
+            """, (
+                txn_data.get('date'),
+                txn_data.get('type'),
+                txn_data.get('item'),
+                txn_data.get('category'),
+                txn_data.get('quantity'),
+                txn_data.get('unit_price'),
+                txn_data.get('subtotal'),
+                txn_data.get('discount'),
+                txn_data.get('total'),
+                txn_data.get('personal_income'),
+                txn_data.get('company_income'),
+                txn_data.get('personal_expense'),
+                txn_data.get('company_expense'),
+                txn_data.get('account'),
+                txn_data.get('location'),
+                txn_data.get('notes'),
+                txn_data.get('id'),
+            ))
+
     def _on_import(self):
         """Import transactions from file."""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -770,27 +1040,27 @@ class LedgerTab(QWidget):
             "",
             "Excel/CSV Files (*.xlsx *.xls *.csv);;All Files (*)"
         )
-        
+
         if not file_path:
             return
-        
+
         try:
             results = self.importer.import_ledger(Path(file_path))
-            
+
             msg = f"Import Complete!\n\n"
             msg += f"✓ Transactions: {results['transactions']}"
-            
+
             if results['errors']:
                 msg += f"\n\n⚠ Errors:\n" + "\n".join(results['errors'][:5])
-            
+
             QMessageBox.information(self, "Import Results", msg)
-            
+
             self._load_transactions()
             self.data_changed.emit()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import:\n{str(e)}")
-    
+
     def _on_export(self):
         """Export transactions to file."""
         file_path, _ = QFileDialog.getSaveFileName(
@@ -799,16 +1069,16 @@ class LedgerTab(QWidget):
             "ledger_export.csv",
             "CSV Files (*.csv);;Excel Files (*.xlsx)"
         )
-        
+
         if not file_path:
             return
-        
+
         try:
             import pandas as pd
-            
+
             # Build data for export
             data = []
-            
+
             # Add opening balance
             settings = self.db.get_game_settings()
             data.append({
@@ -831,7 +1101,7 @@ class LedgerTab(QWidget):
                 'Personal Balance': self.opening_personal,
                 'Notes': '',
             })
-            
+
             # Add transactions
             for txn in self.transactions:
                 if txn.get('type') == 'Opening':
@@ -856,30 +1126,61 @@ class LedgerTab(QWidget):
                     'Personal Balance': txn.get('personal_balance', ''),
                     'Notes': txn.get('notes', ''),
                 })
-            
+
             df = pd.DataFrame(data)
-            
+
             if file_path.endswith('.xlsx'):
                 df.to_excel(file_path, index=False)
             else:
                 df.to_csv(file_path, index=False)
-            
+
             QMessageBox.information(self, "Export", f"Ledger exported to:\n{file_path}")
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Export Error", f"Failed to export:\n{str(e)}")
+
+    def get_fuel_by_vehicle(self) -> dict:
+        """
+        Get fuel consumption summary by vehicle.
+
+        Returns:
+            dict: {vehicle_name: {'liters': total_qty, 'cost': total_cost, 'transactions': count}}
+        """
+        fuel_summary = {}
+
+        for txn in self.transactions:
+            if txn.get('type') != 'Fuel':
+                continue
+
+            vehicle = txn.get('vehicle', 'Unknown')
+            if not vehicle:
+                vehicle = 'Unknown'
+
+            if vehicle not in fuel_summary:
+                fuel_summary[vehicle] = {
+                    'liters': 0,
+                    'cost': 0,
+                    'transactions': 0,
+                }
+
+            fuel_summary[vehicle]['liters'] += txn.get('quantity', 0)
+            fuel_summary[vehicle]['cost'] += abs(txn.get('total', 0))
+            fuel_summary[vehicle]['transactions'] += 1
+
+        return fuel_summary
 
 
 class TransactionDialog(QDialog):
     """Dialog for adding/editing a transaction."""
-    
+
     def __init__(
-        self, 
-        parent=None, 
+        self,
+        parent=None,
         items: list[Item] = None,
         item_names: list[str] = None,
         categories: list[str] = None,
         locations: list[str] = None,
+        vehicles: list[str] = None,
         existing_data: dict = None,
         default_date: QDate = None
     ):
@@ -888,33 +1189,44 @@ class TransactionDialog(QDialog):
         self.item_names = item_names or []
         self.categories = categories or []
         self.locations = locations or []
+        self.vehicles = vehicles or []
         self.existing_data = existing_data
         self.default_date = default_date or QDate.currentDate()
-        
+
         self.setWindowTitle("Edit Transaction" if existing_data else "Add Transaction")
         self.setMinimumWidth(500)
-        
+
         self._setup_ui()
-        
+
         if existing_data:
             self._populate_from_data(existing_data)
-    
+
     def _setup_ui(self):
         """Setup the dialog UI."""
         layout = QFormLayout(self)
-        
+
         # Date - use in-game date as default
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(self.default_date)
         layout.addRow("Date:", self.date_edit)
-        
+
         # Type
         self.type_combo = QComboBox()
         self.type_combo.addItems(["Purchase", "Sale", "Transfer", "Fuel"])
         self.type_combo.currentTextChanged.connect(self._on_type_changed)
         layout.addRow("Type:", self.type_combo)
-        
+
+        # Vehicle (only visible for Fuel type)
+        self.vehicle_label = QLabel("Vehicle:")
+        self.vehicle_combo = QComboBox()
+        self.vehicle_combo.setEditable(True)
+        self.vehicle_combo.addItem("")
+        self.vehicle_combo.addItems(self.vehicles)
+        self.vehicle_label.setVisible(False)
+        self.vehicle_combo.setVisible(False)
+        layout.addRow(self.vehicle_label, self.vehicle_combo)
+
         # Item (with autocomplete)
         self.item_edit = QLineEdit()
         completer = QCompleter(self.item_names)
@@ -922,21 +1234,21 @@ class TransactionDialog(QDialog):
         self.item_edit.setCompleter(completer)
         self.item_edit.textChanged.connect(self._on_item_changed)
         layout.addRow("Item:", self.item_edit)
-        
+
         # Category (auto-filled from item, but editable)
         self.category_combo = QComboBox()
         self.category_combo.setEditable(True)
         self.category_combo.addItem("")
         self.category_combo.addItems(self.categories)
         layout.addRow("Category:", self.category_combo)
-        
+
         # Quantity
         self.qty_spin = QSpinBox()
         self.qty_spin.setRange(1, 99999)
         self.qty_spin.setValue(1)
         self.qty_spin.valueChanged.connect(self._calculate_totals)
         layout.addRow("Quantity:", self.qty_spin)
-        
+
         # Unit Price (can have decimals for bulk pricing)
         self.unit_price_spin = QDoubleSpinBox()
         self.unit_price_spin.setRange(0, 99999999)
@@ -944,11 +1256,11 @@ class TransactionDialog(QDialog):
         self.unit_price_spin.setPrefix("$")
         self.unit_price_spin.valueChanged.connect(self._calculate_totals)
         layout.addRow("Unit Price:", self.unit_price_spin)
-        
+
         # Subtotal (calculated, whole number)
         self.subtotal_label = QLabel("$0")
         layout.addRow("Subtotal:", self.subtotal_label)
-        
+
         # Discount (whole number)
         self.discount_spin = QDoubleSpinBox()
         self.discount_spin.setRange(0, 99999999)
@@ -956,28 +1268,28 @@ class TransactionDialog(QDialog):
         self.discount_spin.setPrefix("$")
         self.discount_spin.valueChanged.connect(self._calculate_totals)
         layout.addRow("Discount:", self.discount_spin)
-        
+
         # Total (calculated, whole number)
         self.total_label = QLabel("$0")
         self.total_label.setStyleSheet("font-weight: bold;")
         layout.addRow("Total:", self.total_label)
-        
+
         # Account
         self.account_combo = QComboBox()
         self.account_combo.addItems(["Personal", "Company"])
         layout.addRow("Account:", self.account_combo)
-        
+
         # Location
         self.location_combo = QComboBox()
         self.location_combo.setEditable(True)
         self.location_combo.addItem("")
         self.location_combo.addItems(self.locations)
         layout.addRow("Location:", self.location_combo)
-        
+
         # Notes
         self.notes_edit = QLineEdit()
         layout.addRow("Notes:", self.notes_edit)
-        
+
         # Buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -985,12 +1297,19 @@ class TransactionDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
-    
+
     def _on_type_changed(self, txn_type: str):
         """Handle transaction type change."""
-        # Could adjust UI based on type (e.g., Transfer has different fields)
-        pass
-    
+        # Show vehicle dropdown only for Fuel transactions
+        is_fuel = (txn_type == "Fuel")
+        self.vehicle_label.setVisible(is_fuel)
+        self.vehicle_combo.setVisible(is_fuel)
+
+        # For Fuel, pre-fill item as "Fuel (Diesel)" if empty
+        if is_fuel and not self.item_edit.text():
+            self.item_edit.setText("Fuel (Diesel)")
+            self.category_combo.setCurrentText("Vehicles - Ops")
+
     def _on_item_changed(self, item_name: str):
         """Handle item selection - auto-fill category and price."""
         # Find item in list
@@ -1002,35 +1321,35 @@ class TransactionDialog(QDialog):
                     self.category_combo.setCurrentIndex(idx)
                 else:
                     self.category_combo.setCurrentText(item.category)
-                
+
                 # Set price based on transaction type
                 if self.type_combo.currentText() == "Sale":
                     self.unit_price_spin.setValue(item.sell_price)
                 else:
                     # Use current buy price (with discounts) - would need reference to parent tab
                     self.unit_price_spin.setValue(item.buy_price)
-                
+
                 break
-    
+
     def _calculate_totals(self):
         """Calculate subtotal and total (matching game rounding behavior)."""
         import math
-        
+
         qty = self.qty_spin.value()
         unit_price = self.unit_price_spin.value()
         discount = self.discount_spin.value()
-        
+
         # Game rounds UP for single unit, exact for bulk (qty >= 2)
         if qty == 1:
             subtotal = math.ceil(unit_price)  # Round up for single unit
         else:
             subtotal = round(qty * unit_price)  # Bulk pricing is exact, round to nearest
-        
+
         total = round(subtotal - discount)  # Round to whole number
-        
+
         self.subtotal_label.setText(f"${subtotal:,.0f}")
         self.total_label.setText(f"${total:,.0f}")
-    
+
     def _populate_from_data(self, data: dict):
         """Populate form from existing transaction data."""
         if data.get('date'):
@@ -1039,56 +1358,59 @@ class TransactionDialog(QDialog):
                 self.date_edit.setDate(QDate(d.year, d.month, d.day))
             except:
                 pass
-        
+
         if data.get('type'):
             idx = self.type_combo.findText(data['type'])
             if idx >= 0:
                 self.type_combo.setCurrentIndex(idx)
-        
+
         if data.get('item'):
             self.item_edit.setText(data['item'])
-        
+
         if data.get('category'):
             self.category_combo.setCurrentText(data['category'])
-        
+
         if data.get('quantity'):
             self.qty_spin.setValue(int(data['quantity']))
-        
+
         if data.get('unit_price'):
             self.unit_price_spin.setValue(float(data['unit_price']))
-        
+
         if data.get('discount'):
             self.discount_spin.setValue(float(data['discount']))
-        
+
         if data.get('account'):
             idx = self.account_combo.findText(data['account'])
             if idx >= 0:
                 self.account_combo.setCurrentIndex(idx)
-        
+
         if data.get('location'):
             self.location_combo.setCurrentText(data['location'])
-        
+
+        if data.get('vehicle'):
+            self.vehicle_combo.setCurrentText(data['vehicle'])
+
         if data.get('notes'):
             self.notes_edit.setText(data['notes'])
-        
+
         self._calculate_totals()
-    
+
     def get_transaction_data(self) -> dict:
         """Get the transaction data from the form."""
         import math
-        
+
         qty = self.qty_spin.value()
         unit_price = self.unit_price_spin.value()
         discount = round(self.discount_spin.value())  # Whole number
-        
+
         # Game rounds UP for single unit, exact for bulk (qty >= 2)
         if qty == 1:
             subtotal = math.ceil(unit_price)  # Round up for single unit
         else:
             subtotal = round(qty * unit_price)  # Bulk pricing is exact, round to nearest
-        
+
         total = round(subtotal - discount)  # Whole number
-        
+
         return {
             'date': self.date_edit.date().toString("yyyy-MM-dd"),
             'type': self.type_combo.currentText(),
@@ -1101,5 +1423,6 @@ class TransactionDialog(QDialog):
             'total': total,
             'account': self.account_combo.currentText(),
             'location': self.location_combo.currentText(),
+            'vehicle': self.vehicle_combo.currentText() if self.type_combo.currentText() == "Fuel" else "",
             'notes': self.notes_edit.text(),
         }

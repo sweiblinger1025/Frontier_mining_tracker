@@ -79,9 +79,9 @@ class ProductionTab(QWidget):
             "Silver Bar": 123, "Steel Bar": 60,
             # Materials - Concrete
             "Cement": 11,
-            # Materials - Sub Parts
-            "Electronic Parts": 140, "Empty Barrel": 35, "Plastics": 56,
-            "Rubber": 63, "Wearplate": 105,
+            # Materials - Sub Parts (sell prices from Reference Data)
+            "Electronic Parts": 350, "Empty Barrel": 46, "Plastics": 98,
+            "Rubber": 95, "Wearplate": 224,
             # Materials - Fuel
             "Fuel": 70,
             # Materials - Metals
@@ -486,7 +486,7 @@ class ProductionLogSubTab(QWidget):
         
         row2.addWidget(QLabel("Date/Time:"))
         self.datetime_edit = QDateTimeEdit()
-        self.datetime_edit.setDateTime(QDateTime.currentDateTime())
+        self.datetime_edit.setDateTime(self._get_game_datetime())
         self.datetime_edit.setCalendarPopup(True)
         row2.addWidget(self.datetime_edit)
         
@@ -496,6 +496,7 @@ class ProductionLogSubTab(QWidget):
         
         self.add_outputs_check = QCheckBox("Add outputs to Inventory")
         self.add_outputs_check.setToolTip("Increase inventory quantities for products made")
+        self.add_outputs_check.stateChanged.connect(self._on_add_outputs_changed)
         row2.addWidget(self.add_outputs_check)
         
         self.log_btn = QPushButton("📝 Log Production")
@@ -504,6 +505,24 @@ class ProductionLogSubTab(QWidget):
         
         row2.addStretch()
         entry_layout.addLayout(row2)
+        
+        # Row 3: Ledger integration options
+        row3 = QHBoxLayout()
+        row3.addSpacing(100)  # Indent to align with checkboxes above
+        
+        self.record_sale_check = QCheckBox("📒 Record sale to Ledger")
+        self.record_sale_check.setToolTip("Sell directly - creates Ledger entry, skips inventory\n(Items sold immediately, not added to stock)")
+        self.record_sale_check.setVisible(False)  # Hidden until "Add outputs" is checked
+        row3.addWidget(self.record_sale_check)
+        
+        self.sale_account_combo = QComboBox()
+        self.sale_account_combo.addItems(["Personal", "Company"])
+        self.sale_account_combo.setVisible(False)
+        self.sale_account_combo.setToolTip("Account to record the sale under")
+        row3.addWidget(self.sale_account_combo)
+        
+        row3.addStretch()
+        entry_layout.addLayout(row3)
         
         # Recipe info panel
         self.recipe_info = QLabel("Select a building and recipe to see details")
@@ -706,6 +725,26 @@ class ProductionLogSubTab(QWidget):
                 return base_price * 1.04  # Polished is ~4% more expensive
         return base_price  # Standard or unknown
     
+    def _on_add_outputs_changed(self, state):
+        """Show/hide Ledger options when Add outputs checkbox changes."""
+        is_checked = state == 2  # Qt.CheckState.Checked
+        self.record_sale_check.setVisible(is_checked)
+        self.sale_account_combo.setVisible(is_checked and self.record_sale_check.isChecked())
+        
+        # Also connect/disconnect the record_sale checkbox
+        if is_checked:
+            self.record_sale_check.stateChanged.connect(self._on_record_sale_changed)
+        else:
+            try:
+                self.record_sale_check.stateChanged.disconnect(self._on_record_sale_changed)
+            except:
+                pass
+            self.record_sale_check.setChecked(False)
+    
+    def _on_record_sale_changed(self, state):
+        """Show/hide account combo when Record sale checkbox changes."""
+        self.sale_account_combo.setVisible(state == 2)
+    
     def _log_production(self):
         """Log a production run."""
         building = self.building_combo.currentText()
@@ -800,13 +839,18 @@ class ProductionLogSubTab(QWidget):
         self.parent_tab.production_log.append(entry)
         self._refresh_history()
         
+        # Determine if we're selling directly or stocking
+        recording_sale = self.record_sale_check.isChecked() and self.record_sale_check.isVisible()
+        
         # Handle inventory updates
         if inventory_tab:
             if self.deduct_inputs_check.isChecked():
                 for input_name, input_qty in inputs_used:
                     inventory_tab.adjust_item_quantity(input_name, -input_qty)
             
-            if self.add_outputs_check.isChecked():
+            # Only add to inventory if NOT recording a sale
+            # (If selling directly, items don't go into stock)
+            if self.add_outputs_check.isChecked() and not recording_sale:
                 # Get category and price for the output item
                 output_name = recipe["output"]
                 if concrete_quality:
@@ -822,6 +866,13 @@ class ProductionLogSubTab(QWidget):
                     unit_price=unit_price
                 )
         
+        # Handle Ledger integration - record sale
+        if recording_sale:
+            self._record_sale_to_ledger(
+                recipe, total_output, concrete_quality,
+                self.sale_account_combo.currentText()
+            )
+        
         self.parent_tab.data_changed.emit()
         
         # Show confirmation
@@ -830,12 +881,82 @@ class ProductionLogSubTab(QWidget):
             msg_parts[0] += f" ({concrete_quality})"
         if self.deduct_inputs_check.isChecked():
             msg_parts.append("Inputs deducted from inventory")
-        if self.add_outputs_check.isChecked():
+        if self.add_outputs_check.isChecked() and not recording_sale:
             msg_parts.append("Outputs added to inventory")
+        if recording_sale:
+            msg_parts.append("Sale recorded to Ledger (sold directly)")
         
         # Reset form
         self.output_qty_spin.setValue(1)
-        self.datetime_edit.setDateTime(QDateTime.currentDateTime())
+        self.datetime_edit.setDateTime(self._get_game_datetime())
+    
+    def _get_game_datetime(self):
+        """Get current game date with current time."""
+        try:
+            main_window = self.parent_tab.main_window
+            if main_window and hasattr(main_window, 'settings_tab'):
+                settings = main_window.settings_tab
+                if hasattr(settings, 'current_game_date'):
+                    game_date = settings.current_game_date.date()
+                    # Use game date with current time
+                    current_time = QDateTime.currentDateTime().time()
+                    return QDateTime(game_date, current_time)
+        except Exception:
+            pass
+        # Fallback: game default date with current time
+        from PyQt6.QtCore import QDate, QTime
+        return QDateTime(QDate(2021, 4, 22), QDateTime.currentDateTime().time())
+    
+    def _record_sale_to_ledger(self, recipe, total_output, concrete_quality, account):
+        """Record a sale transaction to the Ledger."""
+        try:
+            main_window = self.parent_tab.main_window
+            if not main_window or not hasattr(main_window, 'ledger_tab'):
+                return
+            
+            ledger_tab = main_window.ledger_tab
+            
+            # Get item details
+            output_name = recipe["output"]
+            if concrete_quality:
+                category = self._get_concrete_category(concrete_quality)
+                unit_price = self._get_concrete_price(output_name, concrete_quality)
+            else:
+                category = self._guess_category(output_name)
+                unit_price = self.parent_tab.get_item_price(output_name, "sell")
+            
+            # Calculate total
+            import math
+            if total_output == 1:
+                total = math.ceil(unit_price)
+            else:
+                total = round(total_output * unit_price)
+            
+            # Build transaction data
+            txn_data = {
+                'date': self.datetime_edit.date().toString("yyyy-MM-dd"),
+                'type': 'Sale',
+                'item': output_name,
+                'category': category,
+                'quantity': total_output,
+                'unit_price': unit_price,
+                'subtotal': total,
+                'discount': 0,
+                'total': total,
+                'account': account,
+                'location': '',
+                'vehicle': '',
+                'notes': f'Production: {recipe["output"]}' + (f' ({concrete_quality})' if concrete_quality else ''),
+            }
+            
+            # Add to ledger
+            ledger_tab._add_transaction(txn_data)
+            
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Ledger Error",
+                f"Failed to record sale to Ledger:\n{str(e)}"
+            )
     
     def _get_concrete_category(self, quality):
         """Get the inventory category for concrete based on quality."""
