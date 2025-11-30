@@ -181,27 +181,22 @@ class ExcelImporter:
         df = self._read_file(file_path)
         
         count = 0
-        with self.db._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            for _, row in df.iterrows():
-                try:
-                    name = str(row["Location"]) if pd.notna(row.get("Location")) else ""
-                    if not name:
-                        continue
-                    
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO locations (name, map_name, location_type)
-                        VALUES (?, ?, ?)
-                    """, (
-                        name,
-                        str(row["Map"]) if pd.notna(row.get("Map")) else "",
-                        str(row["Type"]) if pd.notna(row.get("Type")) else "",
-                    ))
-                    if cursor.rowcount > 0:
-                        count += 1
-                except Exception as e:
-                    print(f"Error importing location {row.get('Location', 'unknown')}: {e}")
+        for _, row in df.iterrows():
+            try:
+                name = str(row["Location"]) if pd.notna(row.get("Location")) else ""
+                if not name:
+                    continue
+                
+                map_name = str(row["Map"]) if pd.notna(row.get("Map")) else ""
+                loc_type = str(row["Type"]) if pd.notna(row.get("Type")) else ""
+                
+                # Use database method which handles map_id/type_id lookups
+                self.db.add_location(name, map_name, loc_type)
+                count += 1
+            except Exception as e:
+                print(f"Error importing location {row.get('Location', 'unknown')}: {e}")
+        
+        return count
         
         return count
     
@@ -458,28 +453,50 @@ class ExcelImporter:
         """Import locations from Location List sheet."""
         df = pd.read_excel(xl, sheet_name="Location List")
         
-        count = 0
-        with self.db._get_connection() as conn:
-            cursor = conn.cursor()
+        # First pass: collect unique maps and types
+        unique_maps = df['Map'].dropna().unique() if 'Map' in df.columns else []
+        unique_types = df['Type'].dropna().unique() if 'Type' in df.columns else []
+        
+        # Extract map abbreviations from location names
+        map_abbrevs = {}
+        for _, row in df.iterrows():
+            loc_name = str(row['Location']) if pd.notna(row.get('Location')) else ''
+            map_name = str(row['Map']) if pd.notna(row.get('Map')) else ''
             
-            for _, row in df.iterrows():
-                try:
-                    name = str(row["Location"]) if pd.notna(row.get("Location")) else ""
-                    if not name:
-                        continue
-                    
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO locations (name, map_name, location_type)
-                        VALUES (?, ?, ?)
-                    """, (
-                        name,
-                        str(row["Map"]) if pd.notna(row.get("Map")) else "",
-                        str(row["Type"]) if pd.notna(row.get("Type")) else "",
-                    ))
-                    if cursor.rowcount > 0:
-                        count += 1
-                except Exception as e:
-                    print(f"Error importing location {row.get('Location', 'unknown')}: {e}")
+            if ' - ' in loc_name and map_name:
+                abbrev = loc_name.split(' - ')[0].strip()
+                if map_name not in map_abbrevs:
+                    map_abbrevs[map_name] = abbrev
+        
+        # Add maps to database
+        existing_maps = {m['name']: m for m in self.db.get_maps()}
+        for map_name in unique_maps:
+            if map_name and map_name not in existing_maps:
+                abbrev = map_abbrevs.get(map_name, str(map_name)[:3].upper())
+                self.db.add_map(abbrev, map_name)
+        
+        # Add types to database
+        existing_types = {t['name']: t for t in self.db.get_location_types()}
+        for type_name in unique_types:
+            if type_name and type_name not in existing_types:
+                self.db.add_location_type(type_name)
+        
+        # Add locations
+        count = 0
+        for _, row in df.iterrows():
+            try:
+                name = str(row["Location"]) if pd.notna(row.get("Location")) else ""
+                if not name:
+                    continue
+                
+                map_name = str(row["Map"]) if pd.notna(row.get("Map")) else ""
+                loc_type = str(row["Type"]) if pd.notna(row.get("Type")) else ""
+                
+                # Use database method which handles map_id/type_id lookups
+                self.db.add_location(name, map_name, loc_type)
+                count += 1
+            except Exception as e:
+                print(f"Error importing location {row.get('Location', 'unknown')}: {e}")
         
         return count
     
