@@ -66,6 +66,7 @@ class MainWindow(QMainWindow):
         from ui.tabs.settings_tab import SettingsTab
         from ui.tabs.budget_planner_tab import BudgetPlannerTab
         from ui.tabs.roi_tracker_tab import ROITrackerTab
+        from ui.tabs.production_tab import ProductionTab
         
         # Create tabs
         for tab_name, tab_id in TABS:
@@ -84,11 +85,14 @@ class MainWindow(QMainWindow):
             elif tab_id == "roi_tracker":
                 tab = ROITrackerTab(self)
                 self.roi_tracker_tab = tab
+            elif tab_id == "production":
+                tab = ProductionTab(self)
+                self.production_tab = tab
             elif tab_id == "material":
                 tab = MaterialMovementTab()
                 self.material_movement_tab = tab
             elif tab_id == "inventory":
-                tab = InventoryTab()
+                tab = InventoryTab(main_window=self)
                 self.inventory_tab = tab
             elif tab_id == "budget_planner":
                 tab = BudgetPlannerTab()

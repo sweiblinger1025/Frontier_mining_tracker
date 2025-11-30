@@ -19,6 +19,7 @@ from ui.tabs.inventory_tab import InventoryTab
 from ui.tabs.settings_tab import SettingsTab
 from ui.tabs.budget_planner_tab import BudgetPlannerTab
 from ui.tabs.roi_tracker_tab import ROITrackerTab
+from ui.tabs.production_tab import ProductionTab
 
 __all__ = [
     "DashboardTab",
@@ -37,4 +38,5 @@ __all__ = [
     "SettingsTab",
     "BudgetPlannerTab",
     "ROITrackerTab",
+    "ProductionTab",
 ]

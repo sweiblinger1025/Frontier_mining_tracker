@@ -1,0 +1,268 @@
+{
+  "version": "1.0",
+  "saved_at": "2025-11-29T21:49:19.505228",
+  "ledger": {
+    "transactions": [
+      {
+        "Date": "2025-11-27",
+        "Type": "Opening",
+        "Item": "Opening Balance",
+        "Category": "",
+        "Qty": "",
+        "Unit Price": "",
+        "Subtotal": "",
+        "Discount": "",
+        "Total": "",
+        "Personal Income": "",
+        "Company Income": "",
+        "Personal Expense": "",
+        "Company Expense": "",
+        "Account": "",
+        "Location": "",
+        "Company Balance": "$0",
+        "Personal Balance": "$100,000",
+        "Notes": ""
+      }
+    ],
+    "starting_personal": 10000,
+    "starting_company": 90000
+  },
+  "inventory": {
+    "inventory_items": [
+      {
+        "name": "Aluminium Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 1,
+        "unit_price": 26.6
+      },
+      {
+        "name": "Coal",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 2,
+        "unit_price": 9.1
+      },
+      {
+        "name": "Copper Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 3,
+        "unit_price": 20.3
+      },
+      {
+        "name": "Diamond Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 4,
+        "unit_price": 32.9
+      },
+      {
+        "name": "Gold Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 5,
+        "unit_price": 31.5
+      },
+      {
+        "name": "Iron Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 6,
+        "unit_price": 17.5
+      },
+      {
+        "name": "Lithium Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 7,
+        "unit_price": 38.5
+      },
+      {
+        "name": "Ruby Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 8,
+        "unit_price": 33.6
+      },
+      {
+        "name": "Silicon Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 9,
+        "unit_price": 36.4
+      },
+      {
+        "name": "Silver Ore",
+        "category": "Resources - Ore",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 10,
+        "unit_price": 29.4
+      },
+      {
+        "name": "Oil",
+        "category": "Resources - Fluids",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 11,
+        "unit_price": 66.5
+      },
+      {
+        "name": "Refined Oil",
+        "category": "Resources - Fluids",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 12,
+        "unit_price": 93
+      },
+      {
+        "name": "PayDirt",
+        "category": "Resources - Dirt",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 13,
+        "unit_price": 2.1
+      },
+      {
+        "name": "Dirt",
+        "category": "Resources - Dirt",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 14,
+        "unit_price": 1.4
+      },
+      {
+        "name": "Tailings",
+        "category": "Resources - Dirt",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 15,
+        "unit_price": 0.7
+      },
+      {
+        "name": "Gravel",
+        "category": "Resources - Rock",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 16,
+        "unit_price": 6.0
+      },
+      {
+        "name": "Blasted Rock",
+        "category": "Resources - Rock",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 17,
+        "unit_price": 4.0
+      },
+      {
+        "name": "Crushed Rock",
+        "category": "Resources - Rock",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 18,
+        "unit_price": 6.0
+      },
+      {
+        "name": "Solid Rock",
+        "category": "Resources - Rock",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 19,
+        "unit_price": 4.0
+      },
+      {
+        "name": "Tree Logs",
+        "category": "Resources - Wood",
+        "location": "ARC - Drill Site 1",
+        "quantity": 0,
+        "id": 20,
+        "unit_price": 21.0
+      },
+      {
+        "name": "Water",
+        "category": "Resources - Fluids",
+        "location": "ARC - Drill Site 1",
+        "quantity": 788,
+        "id": 21,
+        "unit_price": 4
+      },
+      {
+        "name": "Cement",
+        "category": "Materials - Concrete",
+        "location": "ARC - Drill Site 1",
+        "quantity": 576,
+        "id": 22,
+        "unit_price": 11
+      },
+      {
+        "id": 23,
+        "name": "Concrete Block",
+        "quantity": 1,
+        "category": "Buildings - Rough Concrete",
+        "location": "Unknown",
+        "unit_price": 1176.0
+      },
+      {
+        "id": 24,
+        "name": "Concrete Block",
+        "quantity": 1,
+        "category": "Buildings - Concrete",
+        "location": "Unknown",
+        "unit_price": 1680.0
+      },
+      {
+        "id": 25,
+        "name": "Concrete Block",
+        "quantity": 1,
+        "category": "Buildings - Polished Concrete",
+        "location": "Unknown",
+        "unit_price": 2184.0
+      }
+    ],
+    "oil_cap_enabled": true,
+    "oil_cap_amount": 10000,
+    "oil_lifetime_sold": 0
+  },
+  "roi_tracker": {
+    "investments": []
+  },
+  "budget_planner": {
+    "equipment_items": [],
+    "power_setups": []
+  },
+  "material_movement": {
+    "hauling_sessions": [],
+    "processing_sessions": []
+  },
+  "settings": {
+    "game_start_date": "2021-04-22",
+    "current_game_date": "2021-04-23",
+    "starting_capital": 100000,
+    "fuel_price_per_liter": 0.32,
+    "difficulty_level": "Easy",
+    "personal_split": 0.1,
+    "company_split": 0.9,
+    "oil_cap_enabled": true,
+    "oil_cap_amount": 10000,
+    "oil_lifetime_sold": 0,
+    "daily_limit_enabled": false,
+    "daily_limit_amount": 0,
+    "bar_threshold": 5000,
+    "vendor_negotiation_level": 7,
+    "investment_forecasting_level": 6,
+    "theme": "Light",
+    "currency_format": "$1,234.56",
+    "date_format": "MM/DD/YYYY"
+  }
+}

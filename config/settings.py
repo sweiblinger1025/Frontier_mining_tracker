@@ -43,6 +43,7 @@ TABS = [
     ("Reference Data", "reference"),         # Combined: Items, Factory, Vehicles, Buildings, Recipes, Locations
     ("Auditor", "auditor"),
     ("ROI Tracker", "roi_tracker"),
+    ("Production", "production"),             # Production calculator, log, cost analysis
     ("Inventory", "inventory"),
     ("Material Movement", "material"),
     ("Budget Planner", "budget_planner"),

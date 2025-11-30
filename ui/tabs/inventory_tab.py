@@ -59,9 +59,10 @@ class InventoryTab(QWidget):
     COMPANY_SPLIT = 0.90
     PERSONAL_SPLIT = 0.10
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
         self.db = get_database()
+        self.main_window = main_window
         
         # Inventory data
         self.inventory_items = []
@@ -82,34 +83,109 @@ class InventoryTab(QWidget):
     
     def _load_reference_data(self):
         """Load categories and locations for dropdowns."""
-        # Categories for inventory tracking
+        # Categories for inventory tracking (matching game categories exactly)
         self.categories = [
+            # Resources (raw materials from mining)
             "Resources - Ore",
             "Resources - Fluids",
             "Resources - Dirt",
             "Resources - Rock",
-            "Refined Products",
-            "Equipment",
+            "Resources - Wood",        # Log (raw wood)
+            # Materials (processed/crafted items)
+            "Materials - Ore",        # Bars, Diamond, Ruby
+            "Materials - Concrete",   # Cement
+            "Materials - Sub Parts",  # Electronic Parts, Empty Barrel, Plastics, Rubber, Wearplate (craftable)
+            "Materials - Fuel",       # Fuel (not vehicle fuel)
+            "Materials - Metals",     # Steel Rod, Steel Sheet
+            "Materials - Wood",       # Wood Beam, Wood Plank, Wood Sheet
+            # Equipment (vehicle/machine parts)
+            "Equipment - Batteries",
+            "Equipment - ECUs",
+            "Equipment - Filters",
+            "Equipment - Hoses",
+            "Equipment - Injectors",
+            "Equipment - Pumps",
+            "Equipment - Rams",
+            "Equipment - Sensors",
+            "Equipment - Sub Parts",  # Bearing, Bolts & Nuts, Cable, Gear, Gearbox, etc.
+            "Equipment - Turbos",
+            "Equipment - Wearparts",
+            # Buildings (constructed elements)
+            "Buildings - Steel",
+            "Buildings - Steel Doors",
+            "Buildings - Steel Mesh",
+            "Buildings - Concrete",         # Standard concrete
+            "Buildings - Rough Concrete",   # Rough concrete (cheaper)
+            "Buildings - Polished Concrete", # Polished concrete (expensive)
+            "Buildings - Wood",
+            "Buildings - Quest buildings",
         ]
         
         # Load locations from database
         self.locations = self.db.get_locations()
         self.location_names = [""] + [loc['name'] for loc in self.locations]
         
-        # Item prices (base prices from Items table)
+        # Item prices (SELL prices from Reference Data - Items tab)
+        # These are fallbacks; actual prices should come from Reference Data
         self.item_prices = {
-            # Ores
+            # Resources - Ore (sell prices from Reference Data)
             "Aluminium Ore": 37, "Coal": 13, "Copper Ore": 28,
             "Diamond Ore": 45, "Gold Ore": 43, "Iron Ore": 24,
             "Lithium Ore": 53, "Ruby Ore": 46, "Silicon Ore": 50,
-            "Silver Ore": 41,
-            # Fluids
-            "Oil": 66.50, "Refined Oil": 133,
-            # Dirt
-            "PayDirt": 2.10, "Dirt": 1.40, "Tailings": 0.70,
-            # Rock
-            "Gravel": 6, "Blasted Rock": 4, "Crushed Rock": 6, "Solid Rock": 4,
+            "Silver Ore": 41, "Platinum Ore": 55,
+            # Resources - Wood
+            "Tree Logs": 4,
+            # Materials - Ore (Bars, Diamond, Ruby) - sell prices
+            "Aluminium Bar": 105, "Copper Bar": 67, "Diamond": 186,
+            "Gold Bar": 147, "Iron Bar": 46, "Lithium Bar": 175,
+            "Platinum Bar": 186, "Ruby": 193, "Silicon Bar": 56,
+            "Silver Bar": 123, "Steel Bar": 60,
+            # Materials - Concrete
+            "Cement": 11,
+            # Materials - Sub Parts
+            "Electronic Parts": 140, "Empty Barrel": 35, "Plastics": 56,
+            "Rubber": 63, "Wearplate": 105,
+            # Materials - Fuel
+            "Fuel": 70,
+            # Materials - Metals
+            "Steel Rod": 84, "Steel Sheet": 84,
+            # Materials - Wood
+            "Wood Beam": 6, "Wood Plank": 6, "Wood Sheet": 6,
+            # Resources - Fluids (sell prices)
+            "Oil": 47, "Refined Oil": 93, "Water": 4,
+            # Resources - Dirt (sell prices)
+            "PayDirt": 1.50, "Dirt": 1, "Tailings": 0.50,
+            # Resources - Rock (sell prices)
+            "Gravel": 4, "Blasted Rock": 3, "Crushed Rock": 4, "Solid Rock": 3,
+            # Equipment - Sub Parts (sell prices)
+            "Bearing": 98, "Bolts & Nuts": 105, "Cable": 350, "Cam Axle": 350,
+            "Chain": 350, "Drive Axle": 350, "Electric Motor": 350,
+            "Engine Head": 350, "Gear": 175, "Gear Axle": 490,
+            "Gearbox": 1610, "Large Drive Axle": 350, "Piston Rod": 245,
+            "Small Gearbox": 350, "Stepper Motor": 350,
         }
+    
+    def get_item_sell_price(self, item_name):
+        """Get sell price for an item from Reference Data, fallback to hardcoded.
+        
+        Args:
+            item_name: Name of the item
+            
+        Returns:
+            Sell price as float, or 0 if not found
+        """
+        # Try to get from Reference Data first
+        try:
+            if self.main_window and hasattr(self.main_window, 'reference_tab'):
+                ref = self.main_window.reference_tab
+                item = ref.get_item_by_name(item_name)
+                if item:
+                    return item.sell_price
+        except Exception:
+            pass
+        
+        # Fallback to hardcoded prices
+        return self.item_prices.get(item_name, 0)
     
     def _setup_ui(self):
         """Set up the user interface."""
@@ -416,7 +492,7 @@ class InventoryTab(QWidget):
     
     def _initialize_default_items(self):
         """Initialize inventory with default items at zero quantity."""
-        default_location = "QRY - Main Site" if not self.locations else self.locations[0].get('name', '')
+        default_location = "ARC - Drill Site 1" if not self.locations else self.locations[0].get('name', 'ARC - Drill Site 1')
         
         default_items = [
             # Ores
@@ -442,11 +518,13 @@ class InventoryTab(QWidget):
             {"name": "Blasted Rock", "category": "Resources - Rock", "location": default_location, "quantity": 0},
             {"name": "Crushed Rock", "category": "Resources - Rock", "location": default_location, "quantity": 0},
             {"name": "Solid Rock", "category": "Resources - Rock", "location": default_location, "quantity": 0},
+            # Wood (for wood production chain)
+            {"name": "Tree Logs", "category": "Resources - Wood", "location": default_location, "quantity": 0},
         ]
         
         for i, item in enumerate(default_items):
             item['id'] = i + 1
-            item['unit_price'] = self.item_prices.get(item['name'], 0)
+            item['unit_price'] = self.get_item_sell_price(item['name'])
         
         self.inventory_items = default_items
     
@@ -802,6 +880,93 @@ class InventoryTab(QWidget):
             self._update_summary()
             self._update_oil_tracker()
             QMessageBox.information(self, "Reset", "Oil lifetime counter has been reset.")
+    
+    # === Public API Methods for other tabs ===
+    
+    def adjust_item_quantity(self, item_name: str, quantity_change: int, track_oil: bool = True) -> bool:
+        """
+        Adjust quantity of an item by a delta amount.
+        
+        Args:
+            item_name: Name of the item to adjust
+            quantity_change: Amount to add (positive) or subtract (negative)
+            track_oil: Whether to track oil sales for cap
+            
+        Returns:
+            True if successful, False if item not found or insufficient quantity
+        """
+        for item in self.inventory_items:
+            if item['name'] == item_name:
+                new_qty = item['quantity'] + quantity_change
+                
+                # Don't allow negative quantities
+                if new_qty < 0:
+                    return False
+                
+                # Track oil sales if reducing oil quantity
+                if track_oil and item_name == "Oil" and quantity_change < 0:
+                    self.oil_lifetime_sold += abs(quantity_change)
+                
+                item['quantity'] = new_qty
+                self._apply_filters()
+                self._update_summary()
+                self._update_oil_tracker()
+                return True
+        
+        return False
+    
+    def add_or_update_item(self, item_name: str, quantity: int, category: str = None, 
+                          location: str = None, unit_price: float = None) -> bool:
+        """
+        Add a new item or update quantity of existing item.
+        
+        Args:
+            item_name: Name of the item
+            quantity: Quantity to add (will be added to existing if item exists)
+            category: Category (used for matching AND creating new items)
+            location: Location (only used if creating new item)
+            unit_price: Unit price (used for new items, updates existing if provided)
+            
+        Returns:
+            True if successful
+        """
+        # Check if item exists - match by name AND category if category provided
+        for item in self.inventory_items:
+            if item['name'] == item_name:
+                # If category is provided, it must match too
+                if category and item['category'] != category:
+                    continue  # Keep looking for matching category
+                
+                item['quantity'] += quantity
+                # Update unit price if provided
+                if unit_price is not None:
+                    item['unit_price'] = unit_price
+                self._apply_filters()
+                self._update_summary()
+                self._update_oil_tracker()
+                return True
+        
+        # Create new item (no match found by name+category)
+        new_item = {
+            'id': len(self.inventory_items) + 1,
+            'name': item_name,
+            'quantity': quantity,
+            'category': category or "Unknown",
+            'location': location or "Unknown",
+            'unit_price': unit_price or self.item_prices.get(item_name, 0),
+        }
+        self.inventory_items.append(new_item)
+        self._apply_filters()
+        self._update_summary()
+        self._update_oil_tracker()
+        return True
+    
+    def get_item_quantity(self, item_name: str) -> int:
+        """Get current quantity of an item."""
+        for item in self.inventory_items:
+            if item['name'] == item_name:
+                return item.get('quantity', 0)
+        return 0
 
 
 class InventoryItemDialog(QDialog):
