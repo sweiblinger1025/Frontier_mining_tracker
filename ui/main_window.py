@@ -77,7 +77,7 @@ class MainWindow(QMainWindow):
                 tab = ReferenceDataTab()
                 self.reference_tab = tab
             elif tab_id == "ledger":
-                tab = LedgerTab()
+                tab = LedgerTab(main_window=self)
                 self.ledger_tab = tab
             elif tab_id == "auditor":
                 tab = AuditorTab()
@@ -112,6 +112,10 @@ class MainWindow(QMainWindow):
         # Connect tabs that need references to each other
         if hasattr(self, 'material_movement_tab') and hasattr(self, 'ledger_tab'):
             self.material_movement_tab.set_ledger_tab(self.ledger_tab)
+        
+        # Refresh ledger opening row now that settings_tab exists
+        if hasattr(self, 'ledger_tab'):
+            self.ledger_tab._populate_opening_row()
         
         self.main_layout.addWidget(self.tab_widget)
     

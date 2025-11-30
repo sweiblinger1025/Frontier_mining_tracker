@@ -57,10 +57,11 @@ class LedgerTab(QWidget):
     PERSONAL_SPLIT = 0.10  # 10% to Personal
     COMPANY_SPLIT = 0.90   # 90% to Company
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
         self.db = get_database()
         self.importer = ExcelImporter(self.db)
+        self.main_window = main_window
         
         # Cache for items (for autocomplete)
         self.all_items: list[Item] = []
@@ -78,6 +79,18 @@ class LedgerTab(QWidget):
         self._setup_ui()
         self._load_reference_data()
         self._load_transactions()
+    
+    def get_current_game_date(self):
+        """Get the current in-game date from Settings tab."""
+        try:
+            if self.main_window and hasattr(self.main_window, 'settings_tab'):
+                settings = self.main_window.settings_tab
+                if hasattr(settings, 'current_game_date'):
+                    return settings.current_game_date.date()
+        except Exception:
+            pass
+        # Fallback to default game start date
+        return QDate(2021, 4, 22)
     
     def _setup_ui(self):
         """Setup the UI components."""
@@ -287,9 +300,21 @@ class LedgerTab(QWidget):
         """Populate the opening balance row (row 0)."""
         row = 0
         
-        # Get game start date
-        settings = self.db.get_game_settings()
-        start_date = settings.game_start_date.strftime("%Y-%m-%d") if settings.game_start_date else ""
+        # Get game start date from Settings tab first, then fall back to database
+        start_date = ""
+        try:
+            if self.main_window and hasattr(self.main_window, 'settings_tab'):
+                settings_tab = self.main_window.settings_tab
+                if hasattr(settings_tab, 'game_start_date'):
+                    qdate = settings_tab.game_start_date.date()
+                    start_date = qdate.toString("yyyy-MM-dd")
+        except Exception:
+            pass
+        
+        # Fallback to database if Settings tab not available
+        if not start_date:
+            settings = self.db.get_game_settings()
+            start_date = settings.game_start_date.strftime("%Y-%m-%d") if settings.game_start_date else ""
         
         data = [
             start_date,  # Date
@@ -316,8 +341,8 @@ class LedgerTab(QWidget):
             item = QTableWidgetItem(str(value))
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             
-            # Style opening row differently
-            item.setBackground(QColor("#e3f2fd"))  # Light blue background
+            # Style opening row with gray background (matches row color system)
+            item.setBackground(QColor("#f5f5f5"))
             
             # Right-align currency columns
             if col in [4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16]:
@@ -368,6 +393,17 @@ class LedgerTab(QWidget):
             txn.get('notes', ''),
         ]
         
+        # Row background colors based on transaction type
+        txn_type = txn.get('type', '')
+        row_colors = {
+            'Sale': QColor("#e8f5e9"),       # Light green
+            'Purchase': QColor("#ffebee"),   # Light red
+            'Transfer': QColor("#e3f2fd"),   # Light blue
+            'Fuel': QColor("#fff3e0"),       # Light orange
+            'Opening': QColor("#f5f5f5"),    # Light gray
+        }
+        row_bg = row_colors.get(txn_type, None)
+        
         for col, value in enumerate(data):
             item = QTableWidgetItem(str(value) if value else "")
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
@@ -376,11 +412,15 @@ class LedgerTab(QWidget):
             if col == 0:
                 item.setData(Qt.ItemDataRole.UserRole, txn.get('id'))
             
+            # Apply row background color based on transaction type
+            if row_bg:
+                item.setBackground(row_bg)
+            
             # Right-align numeric columns
             if col in [4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16]:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             
-            # Color income green, expense red
+            # Color income green, expense red (text color)
             if col == 9 and txn.get('personal_income', 0) > 0:  # Personal Income
                 item.setForeground(QColor("#2e7d32"))
             elif col == 10 and txn.get('company_income', 0) > 0:  # Company Income
@@ -450,6 +490,7 @@ class LedgerTab(QWidget):
             item_names=self.item_names,
             categories=self.categories,
             locations=self.locations,
+            default_date=self.get_current_game_date(),
         )
         
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -524,6 +565,13 @@ class LedgerTab(QWidget):
         elif txn_type == 'Purchase':
             if account == 'Personal':
                 txn_data['personal_expense'] = -total  # Negative for expense
+            else:  # Company account
+                txn_data['company_expense'] = -total
+        
+        elif txn_type == 'Fuel':
+            # Fuel follows same logic as Purchase - depends on account
+            if account == 'Personal':
+                txn_data['personal_expense'] = -total
             else:  # Company account
                 txn_data['company_expense'] = -total
         
@@ -832,7 +880,8 @@ class TransactionDialog(QDialog):
         item_names: list[str] = None,
         categories: list[str] = None,
         locations: list[str] = None,
-        existing_data: dict = None
+        existing_data: dict = None,
+        default_date: QDate = None
     ):
         super().__init__(parent)
         self.items = items or []
@@ -840,6 +889,7 @@ class TransactionDialog(QDialog):
         self.categories = categories or []
         self.locations = locations or []
         self.existing_data = existing_data
+        self.default_date = default_date or QDate.currentDate()
         
         self.setWindowTitle("Edit Transaction" if existing_data else "Add Transaction")
         self.setMinimumWidth(500)
@@ -853,15 +903,15 @@ class TransactionDialog(QDialog):
         """Setup the dialog UI."""
         layout = QFormLayout(self)
         
-        # Date
+        # Date - use in-game date as default
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
-        self.date_edit.setDate(QDate.currentDate())
+        self.date_edit.setDate(self.default_date)
         layout.addRow("Date:", self.date_edit)
         
         # Type
         self.type_combo = QComboBox()
-        self.type_combo.addItems(["Purchase", "Sale", "Transfer"])
+        self.type_combo.addItems(["Purchase", "Sale", "Transfer", "Fuel"])
         self.type_combo.currentTextChanged.connect(self._on_type_changed)
         layout.addRow("Type:", self.type_combo)
         
